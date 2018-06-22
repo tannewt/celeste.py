@@ -2,8 +2,6 @@ from celeste import game
 from celeste import geom
 
 from .celeste_object import CelesteObject
-from .player import Player
-from .lifeup import LifeUp
 
 import pico8 as p8
 

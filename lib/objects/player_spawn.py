@@ -39,9 +39,9 @@ class PlayerSpawn(CelesteObject):
                 self.spd = geom.Vec(x=0,y=0)
                 self.state=2
                 self.delay=5
-                shake=5
+                game.shake=5
                 game.objects.append(Smoke(self.x,self.y+4))
-                sfx(5)
+                p8.sfx(5)
         # landing
         elif self.state==2:
             self.delay-=1

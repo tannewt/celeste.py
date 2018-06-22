@@ -9,7 +9,7 @@ import pico8 as p8
 
 class Fruit(CelesteObject):
     tile=26
-    if_not_fruit=true
+    if_not_fruit=True
     def __init__(self, x, y):
         super().__init__(x, y)
         self.start=self.y

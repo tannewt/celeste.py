@@ -1,12 +1,19 @@
+import math
+
 from celeste import game
 from celeste import geom
 
 from celeste.effects.dead_particle import DeadParticle
 
+from .celeste_object import CelesteObject
+from .smoke import Smoke
+from celeste import helper
+
 import pico8 as p8
 
-class Player:
-    def __init__(self):
+class Player(CelesteObject):
+    def __init__(self,x,y):
+        super().__init__(x,y)
         self.p_jump=False
         self.p_dash=False
         self.grace=0
@@ -19,7 +26,7 @@ class Player:
         self.hitbox = geom.Rect(x=1,y=3,w=6,h=5)
         self.spr_off=0
         self.was_on_ground=False
-        create_hair(self)
+        helper.create_hair(self)
 
     def _die(self):
         game.sfx_timer=12
@@ -44,8 +51,8 @@ class Player:
         h = self.hitbox.h
         xspd = self.spd.x
         yspd = self.spd.y
-        for i in range(0,flr(x/8)), min(15,(x+w-1)/8)):
-            for j in range(max(0,flr(y/8)), min(15,(y+h-1)/8)):
+        for i in range(max(0,p8.flr(x/8)), min(16,(x+w-1)/8+1)):
+            for j in range(max(0,p8.flr(y/8)), min(16,(y+h-1)/8+1)):
                 tile = p8.mget(game.room.x * 16 + i, game.room.y * 16 + j)
                 if tile==17 and ((y+h-1)%8>=6 or y+h==j*8+8) and yspd>=0:
                     return True
@@ -71,8 +78,8 @@ class Player:
         if self.y>128:
             self._die()
 
-        on_ground=self.is_solid(0,1)
-        on_ice=self.is_ice(0,1)
+        on_ground=self._is_solid(0,1)
+        on_ice=self._is_ice(0,1)
 
         # smoke particles
         if on_ground and not self.was_on_ground:
@@ -100,8 +107,8 @@ class Player:
         if self.dash_time > 0:
             game.objects.append(Smoke(self.x,self.y))
             self.dash_time-=1
-            self.spd.x=appr(self.spd.x,self.dash_target.x,self.dash_accel.x)
-            self.spd.y=appr(self.spd.y,self.dash_target.y,self.dash_accel.y)
+            self.spd.x=helper.appr(self.spd.x,self.dash_target.x,self.dash_accel.x)
+            self.spd.y=helper.appr(self.spd.y,self.dash_target.y,self.dash_accel.y)
         else:
             # move
             maxrun=1
@@ -116,9 +123,9 @@ class Player:
                     accel=0.05
 
             if abs(self.spd.x) > maxrun:
-                self.spd.x=appr(self.spd.x,sign(self.spd.x)*maxrun,deccel)
+                self.spd.x=helper.appr(self.spd.x,helper.sign(self.spd.x)*maxrun,deccel)
             else:
-                self.spd.x=appr(self.spd.x,input*maxrun,accel)
+                self.spd.x=helper.appr(self.spd.x,input*maxrun,accel)
 
             # facing
             if self.spd.x!=0:
@@ -132,13 +139,13 @@ class Player:
                 gravity*=0.5
 
             # wall slide
-            if input!=0 and self.is_solid(input,0) and not self.is_ice(input,0):
+            if input!=0 and self._is_solid(input,0) and not self._is_ice(input,0):
                 maxfall=0.4
                 if p8.rnd(10)<2:
                     game.objects.append(Smoke(self.x+input*6,self.y))
 
             if not on_ground:
-                self.spd.y=appr(self.spd.y,maxfall,gravity)
+                self.spd.y=helper.appr(self.spd.y,maxfall,gravity)
 
             # jump
             if self.jbuffer>0:
@@ -152,16 +159,16 @@ class Player:
                 else:
                     # wall jump
                     wall_dir = 0
-                    if self.is_solid(-3,0):
+                    if self._is_solid(-3,0):
                         wall_dir = -1
-                    elif self.is_solid(3,0):
+                    elif self._is_solid(3,0):
                         wall_dir = 1
                     if wall_dir!=0:
                         game.psfx(2)
                         self.jbuffer=0
                         self.spd.y=-2
                         self.spd.x=-wall_dir*(maxrun+1)
-                        if not self.is_ice(wall_dir*3,0):
+                        if not self._is_ice(wall_dir*3,0):
                             game.objects.append(Smoke(self.x+wall_dir*6,self.y))
 
             # dash
@@ -172,12 +179,12 @@ class Player:
                 game.objects.append(Smoke(self.x,self.y))
                 self.djump-=1
                 self.dash_time=4
-                has_dashed=true
+                game.has_dashed=True
                 self.dash_effect_time=10
                 v_input = 0
-                if p8.btn(k_up):
+                if p8.btn(game.k_up):
                     v_input = -1
-                elif p8.btn(k_down):
+                elif p8.btn(game.k_down):
                     v_input = 1
                 if input!=0:
                     if v_input!=0:
@@ -194,10 +201,10 @@ class Player:
                     self.spd.y=0
 
                 game.psfx(3)
-                freeze=2
-                shake=6
-                self.dash_target.x=2*sign(self.spd.x)
-                self.dash_target.y=2*sign(self.spd.y)
+                game.freeze=2
+                game.shake=6
+                self.dash_target.x=2*helper.sign(self.spd.x)
+                self.dash_target.y=2*helper.sign(self.spd.y)
                 self.dash_accel.x=1.5
                 self.dash_accel.y=1.5
 
@@ -216,13 +223,13 @@ class Player:
         # animation
         self.spr_off+=0.25
         if not on_ground:
-            if self.is_solid(input,0):
+            if self._is_solid(input,0):
                 self.spr=5
             else:
                 self.spr=3
-        elif btn(k_down):
+        elif p8.btn(game.k_down):
             self.spr=6
-        elif btn(k_up):
+        elif p8.btn(game.k_up):
             self.spr=7
         elif (self.spd.x==0) or (not p8.btn(game.k_left) and not p8.btn(game.k_right)):
             self.spr=1
@@ -239,10 +246,10 @@ class Player:
     def draw(self):
         # clamp in screen
         if self.x<-1 or self.x>121:
-            self.x=clamp(self.x,-1,121)
+            self.x=helper.clamp(self.x,-1,121)
             self.spd.x=0
 
-        set_hair_color(self.djump)
-        draw_hair(self,-1 if self.flip.x else 1)
+        helper.set_hair_color(self.djump)
+        helper.draw_hair(self,-1 if self.flip.x else 1)
         p8.spr(self.spr,self.x,self.y,1,1,self.flip.x,self.flip.y)
-        unset_hair_color()
+        helper.unset_hair_color()

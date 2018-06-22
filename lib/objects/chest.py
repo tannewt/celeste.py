@@ -18,7 +18,7 @@ class Chest(CelesteObject):
         if game.has_key:
             self.timer-=1
             self.x=self.start-1+p8.rnd(3)
-            if self.timer<=0 then
+            if self.timer<=0:
                 game.sfx_timer=20
                 p8.sfx(16)
                 game.objects.append(Fruit(self.x,self.y-4))

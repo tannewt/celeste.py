@@ -1,12 +1,12 @@
 from celeste import game
 
-from .celeste_object import CelesteObject
+from . import celeste_object
 from .player import Player
 from .smoke import Smoke
 
 import pico8 as p8
 
-class FallFloor(CelesteObject):
+class FallFloor(celeste_object.CelesteObject):
     tile=23
     def __init__(self, x, y):
         super().__init__(x, y)
@@ -54,3 +54,7 @@ class FallFloor(CelesteObject):
                 p8.spr(23,self.x,self.y)
             else:
                 p8.spr(23+(15-self.delay)/5,self.x,self.y)
+
+
+# ugly monkey patch to allow CelesteObject to reference FallFloor
+celeste_object.FallFloor = FallFloor

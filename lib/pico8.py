@@ -1,6 +1,8 @@
 import _stage
 import array
 import math
+import random
+import gc
 
 sprite_sheet = None
 tile_map = None
@@ -88,13 +90,13 @@ _buffer = bytearray(4096)
 buttons = 0
 
 def btn(i, p=0):
-    print("btn", i, p)
+    #print("btn", i, p)
     return p == 0 and (buttons & (1 << i)) != 0
 
 def _map(celx, cely, sx, sy, celw, celh, layer=0):
     if layer not in maps:
         maps[layer] = _stage.Layer(128, 64, sprite_sheet, palette, tile_map)
-    print(layer, celx, cely, sx, sy, celw, celh)
+    #print(layer, celx, cely, sx, sy, celw, celh)
     maps[layer].move(-8*celx + sx,-8*cely + sy)
     if layer != 8:
         layers.append(maps[layer])
@@ -109,27 +111,30 @@ def tick(display, button_state):
     display.spi.configure(baudrate=24000000, polarity=0, phase=0)
 
     buttons = button_state
-    print(buttons)
+    #print(buttons)
 
     display.cs.value = False
     # TODO(tannewt): Reverse the layer list automatically
     layers = list(reversed(layers))
-    print(layers)
+
+    #print(layers)
     _stage.render(0, 0, 128, 120, layers, _buffer, display.spi, 2)
     display.cs.value = True
     display.spi.unlock()
     layers = []
     # Throw sprites away for now
     sprites = {}
-
+    #gc.collect()
+    #print("mem free", gc.mem_free())
 
 def spr(n, x, y, w=1.0, h=1.0, flip_x=False, flip_y=False):
+    n = int(n)
+    #print("spr", n, x, y, w, h, flip_x, flip_y)
     if n not in sprites:
         sprites[n] = _stage.Layer(1, 1, sprite_sheet, palette)
-    sprites[n].move(x, y)
-    sprites[n].frame(8)
+    sprites[n].move(int(x), int(y))
+    sprites[n].frame(n)
     layers.append(sprites[n])
-    print("spr", n, x, y, w, h, flip_x, flip_y)
 
 def _print(s, x=None, y=None, col=None):
     pass
@@ -140,4 +145,16 @@ def sfx(n, channel=-1, offset=0, length=None):
 flr = math.floor
 
 def rnd(end):
-    return random.uniform(0, end-)
+    return random.uniform(0, end)
+
+def camera(x=0, y=0):
+    pass
+
+def fget(n, f=0xff):
+    if f != 0xff:
+        f = 1 << f
+    flags = 0x0
+    if 32 <= n <= 39 or 48 <= n <= 55 or n in (64, 65, 80, 81):
+        flags = 3
+    #print("fget", n, f, (flags & f) != 0)
+    return (flags & f) != 0

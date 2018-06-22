@@ -1,14 +1,14 @@
 from celeste import game
 from celeste import geom
 
-from .celeste_object import CelesteObject
+from . import celeste_object
 from .player import Player
 from .smoke import Smoke
 from .fruit import Fruit
 
 import pico8 as p8
 
-class FakeWall(CelesteObject):
+class FakeWall(celeste_object.CelesteObject):
     tile=64
     if_not_fruit=True
 
@@ -34,3 +34,6 @@ class FakeWall(CelesteObject):
         p8.spr(65,self.x+8,self.y)
         p8.spr(80,self.x,self.y+8)
         p8.spr(81,self.x+8,self.y+8)
+
+# ugly monkey patch to allow CelesteObject to reference FakeWall
+celeste_object.FakeWall = FakeWall
