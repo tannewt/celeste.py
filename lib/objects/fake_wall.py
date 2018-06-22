@@ -1,29 +1,36 @@
-fake_wall = {
-	tile=64,
-	if_not_fruit=true,
-	update=function(this)
-		this.hitbox={x=-1,y=-1,w=18,h=18}
-		local hit = this.collide(player,0,0)
-		if hit~=nil and hit.dash_effect_time>0 then
-			hit.spd.x=-sign(hit.spd.x)*1.5
-			hit.spd.y=-1.5
-			hit.dash_time=-1
-			sfx_timer=20
-			sfx(16)
-			destroy_object(this)
-			init_object(smoke,this.x,this.y)
-			init_object(smoke,this.x+8,this.y)
-			init_object(smoke,this.x,this.y+8)
-			init_object(smoke,this.x+8,this.y+8)
-			init_object(fruit,this.x+4,this.y+4)
-		end
-		this.hitbox={x=0,y=0,w=16,h=16}
-	end,
-	draw=function(this)
-		spr(64,this.x,this.y)
-		spr(65,this.x+8,this.y)
-		spr(80,this.x,this.y+8)
-		spr(81,this.x+8,this.y+8)
-	end
-}
-add(types,fake_wall)
+from celeste import game
+from celeste import geom
+
+from .celeste_object import CelesteObject
+from .player import Player
+from .smoke import Smoke
+from .fruit import Fruit
+
+import pico8 as p8
+
+class FakeWall(CelesteObject):
+    tile=64
+    if_not_fruit=True
+
+    def update(self):
+        self.hitbox = geom.Rect(x=-1,y=-1,w=18,h=18)
+        hit = self.collide(Player,0,0)
+        if hit and hit.dash_effect_time>0:
+            hit.spd.x=-sign(hit.spd.x)*1.5
+            hit.spd.y=-1.5
+            hit.dash_time=-1
+            sfx_timer=20
+            sfx(16)
+            game.objects.remove(self)
+            game.objects.append(Smoke(self.x,self.y))
+            game.objects.append(Smoke(self.x+8,self.y))
+            game.objects.append(Smoke(self.x,self.y+8))
+            game.objects.append(Smoke(self.x+8,self.y+8))
+            game.objects.append(Fruit(self.x+4,self.y+4))
+        self.hitbox = geom.Rect(x=0,y=0,w=16,h=16)
+
+    def draw(self):
+        p8.spr(64,self.x,self.y)
+        p8.spr(65,self.x+8,self.y)
+        p8.spr(80,self.x,self.y+8)
+        p8.spr(81,self.x+8,self.y+8)

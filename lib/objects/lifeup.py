@@ -1,21 +1,28 @@
-lifeup = {
-    init=function(this)
-        this.spd.y=-0.25
-        this.duration=30
-        this.x-=2
-        this.y-=4
-        this.flash=0
-        this.solids=false
-    end,
-    update=function(this)
-        this.duration-=1
-        if this.duration<= 0 then
-            destroy_object(this)
-        end
-    end,
-    draw=function(this)
-        this.flash+=0.5
+from celeste import game
+from celeste import geom
 
-        print("1000",this.x-2,this.y,7+this.flash%2)
-    end
-}
+from .celeste_object import CelesteObject
+from .player import Player
+from .lifeup import LifeUp
+
+import pico8 as p8
+
+class LifeUp(CelesteObject):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.spd.y=-0.25
+        self.duration=30
+        self.x-=2
+        self.y-=4
+        self.flash=0
+        self.solids=False
+
+    def update(self):
+        self.duration-=1
+        if self.duration<= 0:
+            game.objects.remove(self)
+
+    def draw(self):
+        self.flash+=0.5
+
+        p8._print("1000",self.x-2,self.y,7+self.flash%2)

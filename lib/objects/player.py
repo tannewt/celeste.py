@@ -1,4 +1,9 @@
 from celeste import game
+from celeste import geom
+
+from celeste.effects.dead_particle import DeadParticle
+
+import pico8 as p8
 
 class Player:
     def __init__(self):
@@ -6,34 +11,65 @@ class Player:
         self.p_dash=False
         self.grace=0
         self.jbuffer=0
-        self.djump=max_djump
+        self.djump=game.max_djump
         self.dash_time=0
         self.dash_effect_time=0
-        self.dash_target={x=0,y=0}
-        self.dash_accel={x=0,y=0}
-        self.hitbox = {x=1,y=3,w=6,h=5}
+        self.dash_target=geom.Vec(x=0,y=0)
+        self.dash_accel=geom.Vec(x=0,y=0)
+        self.hitbox = geom.Rect(x=1,y=3,w=6,h=5)
         self.spr_off=0
         self.was_on_ground=False
         create_hair(self)
 
+    def _die(self):
+        game.sfx_timer=12
+        p8.sfx(0)
+        game.deaths+=1
+        game.shake=10
+        game.objects.remove(self)
+        game.dead_particles=[]
+        for dir in range(8):
+            angle=(dir/8)
+            game.dead_particles.append(DeadParticle(self.x+4,
+                                                    self.y+4,
+                                                    10,
+                                                    geom.Vec(x=math.sin(angle)*3,
+                                                             y=math.cos(angle)*3)))
+            game.restart_room()
+
+    def _spike_collide(self):
+        x = self.x + self.hitbox.x
+        y = self.y + self.hitbox.y
+        w = self.hitbox.w
+        h = self.hitbox.h
+        xspd = self.spd.x
+        yspd = self.spd.y
+        for i in range(0,flr(x/8)), min(15,(x+w-1)/8)):
+            for j in range(max(0,flr(y/8)), min(15,(y+h-1)/8)):
+                tile = p8.mget(game.room.x * 16 + i, game.room.y * 16 + j)
+                if tile==17 and ((y+h-1)%8>=6 or y+h==j*8+8) and yspd>=0:
+                    return True
+                elif tile==27 and y%8<=2 and yspd<=0:
+                    return True
+                elif tile==43 and x%8<=2 and xspd<=0:
+                    return True
+                elif tile==59 and ((x+w-1)%8>=6 or x+w==i*8+8) and xspd>=0:
+                    return True
+        return False
+
     def update(self):
-        if pause_player:
+        if game.pause_player:
             return
 
-        input = btn(k_right) and 1 or (btn(k_left) and -1 or 0)
+        input = p8.btn(game.k_right) and 1 or (p8.btn(game.k_left) and -1 or 0)
 
         # spikes collide
-        if spikes_at(self.x+self.hitbox.x,
-                     self.y+self.hitbox.y,
-                     self.hitbox.w,
-                     self.hitbox.h,
-                     self.spd.x,
-                     self.spd.y):
-            kill_player(self)
+        if self._spike_collide():
+            self._die()
 
         # bottom death
         if self.y>128:
-            kill_player(self)
+            self._die()
 
         on_ground=self.is_solid(0,1)
         on_ice=self.is_ice(0,1)
@@ -42,193 +78,171 @@ class Player:
         if on_ground and not self.was_on_ground:
             game.objects.append(Smoke(self.x,self.y+4))
 
-        jump = btn(k_jump) and not self.p_jump
-        self.p_jump = btn(k_jump)
-        if (jump) then
+        jump = p8.btn(game.k_jump) and not self.p_jump
+        self.p_jump = p8.btn(game.k_jump)
+        if jump:
             self.jbuffer=4
-        elseif self.jbuffer>0 then
-         self.jbuffer-=1
-        end
+        elif self.jbuffer>0:
+            self.jbuffer-=1
 
-        local dash = btn(k_dash) and not self.p_dash
-        self.p_dash = btn(k_dash)
+        dash = p8.btn(game.k_dash) and not self.p_dash
+        self.p_dash = p8.btn(game.k_dash)
 
-        if on_ground then
+        if on_ground:
             self.grace=6
-            if self.djump<max_djump then
-             psfx(54)
-             self.djump=max_djump
-            end
-        elseif self.grace > 0 then
-         self.grace-=1
-        end
+            if self.djump<game.max_djump:
+                game.psfx(54)
+                self.djump=game.max_djump
+        elif self.grace > 0:
+            self.grace-=1
 
         self.dash_effect_time -=1
-  if self.dash_time > 0 then
-   init_object(smoke,self.x,self.y)
-      self.dash_time-=1
-      self.spd.x=appr(self.spd.x,self.dash_target.x,self.dash_accel.x)
-      self.spd.y=appr(self.spd.y,self.dash_target.y,self.dash_accel.y)
-  else
+        if self.dash_time > 0:
+            game.objects.append(Smoke(self.x,self.y))
+            self.dash_time-=1
+            self.spd.x=appr(self.spd.x,self.dash_target.x,self.dash_accel.x)
+            self.spd.y=appr(self.spd.y,self.dash_target.y,self.dash_accel.y)
+        else:
+            # move
+            maxrun=1
+            accel=0.6
+            deccel=0.15
 
-            -- move
-            local maxrun=1
-            local accel=0.6
-            local deccel=0.15
-
-            if not on_ground then
+            if not on_ground:
                 accel=0.4
-            elseif on_ice then
+            elif on_ice:
                 accel=0.05
-                if input==(self.flip.x and -1 or 1) then
+                if input==(-1 if self.flip.x else 1):
                     accel=0.05
-                end
-            end
 
-            if abs(self.spd.x) > maxrun then
-             self.spd.x=appr(self.spd.x,sign(self.spd.x)*maxrun,deccel)
-            else
+            if abs(self.spd.x) > maxrun:
+                self.spd.x=appr(self.spd.x,sign(self.spd.x)*maxrun,deccel)
+            else:
                 self.spd.x=appr(self.spd.x,input*maxrun,accel)
-            end
 
-            --facing
-            if self.spd.x!=0 then
+            # facing
+            if self.spd.x!=0:
                 self.flip.x=(self.spd.x<0)
-            end
 
-            -- gravity
-            local maxfall=2
-            local gravity=0.21
+            # gravity
+            maxfall=2
+            gravity=0.21
 
-      if abs(self.spd.y) <= 0.15 then
-       gravity*=0.5
-            end
+            if abs(self.spd.y) <= 0.15:
+                gravity*=0.5
 
-            -- wall slide
-            if input!=0 and self.is_solid(input,0) and not self.is_ice(input,0) then
-             maxfall=0.4
-             if rnd(10)<2 then
-                 init_object(smoke,self.x+input*6,self.y)
-                end
-            end
+            # wall slide
+            if input!=0 and self.is_solid(input,0) and not self.is_ice(input,0):
+                maxfall=0.4
+                if p8.rnd(10)<2:
+                    game.objects.append(Smoke(self.x+input*6,self.y))
 
-            if not on_ground then
+            if not on_ground:
                 self.spd.y=appr(self.spd.y,maxfall,gravity)
-            end
 
-            -- jump
-            if self.jbuffer>0 then
-             if self.grace>0 then
-              -- normal jump
-              psfx(1)
-              self.jbuffer=0
-              self.grace=0
+            # jump
+            if self.jbuffer>0:
+                if self.grace>0:
+                    # normal jump
+                    game.psfx(1)
+                    self.jbuffer=0
+                    self.grace=0
                     self.spd.y=-2
-                    init_object(smoke,self.x,self.y+4)
-                else
-                    -- wall jump
-                    local wall_dir=(self.is_solid(-3,0) and -1 or self.is_solid(3,0) and 1 or 0)
-                    if wall_dir!=0 then
-                     psfx(2)
-                     self.jbuffer=0
-                     self.spd.y=-2
-                     self.spd.x=-wall_dir*(maxrun+1)
-                     if not self.is_ice(wall_dir*3,0) then
-                         init_object(smoke,self.x+wall_dir*6,self.y)
-                        end
-                    end
-                end
-            end
+                    game.objects.append(Smoke(self.x,self.y+4))
+                else:
+                    # wall jump
+                    wall_dir = 0
+                    if self.is_solid(-3,0):
+                        wall_dir = -1
+                    elif self.is_solid(3,0):
+                        wall_dir = 1
+                    if wall_dir!=0:
+                        game.psfx(2)
+                        self.jbuffer=0
+                        self.spd.y=-2
+                        self.spd.x=-wall_dir*(maxrun+1)
+                        if not self.is_ice(wall_dir*3,0):
+                            game.objects.append(Smoke(self.x+wall_dir*6,self.y))
 
-            -- dash
-            local d_full=5
-            local d_half=d_full*0.70710678118
+            # dash
+            d_full=5
+            d_half=d_full*0.70710678118
 
-            if self.djump>0 and dash then
-             init_object(smoke,self.x,self.y)
-             self.djump-=1
-             self.dash_time=4
-             has_dashed=true
-             self.dash_effect_time=10
-             local v_input=(btn(k_up) and -1 or (btn(k_down) and 1 or 0))
-             if input!=0 then
-              if v_input!=0 then
-               self.spd.x=input*d_half
-               self.spd.y=v_input*d_half
-              else
-               self.spd.x=input*d_full
-               self.spd.y=0
-              end
-             elseif v_input!=0 then
-                 self.spd.x=0
-                 self.spd.y=v_input*d_full
-             else
-                 self.spd.x=(self.flip.x and -1 or 1)
-              self.spd.y=0
-             end
+            if self.djump>0 and dash:
+                game.objects.append(Smoke(self.x,self.y))
+                self.djump-=1
+                self.dash_time=4
+                has_dashed=true
+                self.dash_effect_time=10
+                v_input = 0
+                if p8.btn(k_up):
+                    v_input = -1
+                elif p8.btn(k_down):
+                    v_input = 1
+                if input!=0:
+                    if v_input!=0:
+                        self.spd.x=input*d_half
+                        self.spd.y=v_input*d_half
+                    else:
+                        self.spd.x=input*d_full
+                        self.spd.y=0
+                elif v_input!=0:
+                    self.spd.x=0
+                    self.spd.y=v_input*d_full
+                else:
+                    self.spd.x=(-1 if self.flip.x else 1)
+                    self.spd.y=0
 
-             psfx(3)
-             freeze=2
-             shake=6
-             self.dash_target.x=2*sign(self.spd.x)
-             self.dash_target.y=2*sign(self.spd.y)
-             self.dash_accel.x=1.5
-             self.dash_accel.y=1.5
+                game.psfx(3)
+                freeze=2
+                shake=6
+                self.dash_target.x=2*sign(self.spd.x)
+                self.dash_target.y=2*sign(self.spd.y)
+                self.dash_accel.x=1.5
+                self.dash_accel.y=1.5
 
-             if self.spd.y<0 then
-              self.dash_target.y*=.75
-             end
+                if self.spd.y<0:
+                    self.dash_target.y*=.75
 
-             if self.spd.y!=0 then
-              self.dash_accel.x*=0.70710678118
-             end
-             if self.spd.x!=0 then
-              self.dash_accel.y*=0.70710678118
-             end
-            elseif dash and self.djump<=0 then
-             psfx(9)
-             init_object(smoke,self.x,self.y)
-            end
+                if self.spd.y!=0:
+                    self.dash_accel.x*=0.70710678118
 
-        end
+                if self.spd.x!=0:
+                    self.dash_accel.y*=0.70710678118
+            elif dash and self.djump<=0:
+                game.psfx(9)
+                game.objects.append(Smoke(self.x,self.y))
 
-        -- animation
+        # animation
         self.spr_off+=0.25
-        if not on_ground then
-            if self.is_solid(input,0) then
+        if not on_ground:
+            if self.is_solid(input,0):
                 self.spr=5
-            else
+            else:
                 self.spr=3
-            end
-        elseif btn(k_down) then
+        elif btn(k_down):
             self.spr=6
-        elseif btn(k_up) then
+        elif btn(k_up):
             self.spr=7
-        elseif (self.spd.x==0) or (not btn(k_left) and not btn(k_right)) then
+        elif (self.spd.x==0) or (not p8.btn(game.k_left) and not p8.btn(game.k_right)):
             self.spr=1
-        else
+        else:
             self.spr=1+self.spr_off%4
-        end
 
-        -- next level
-        if self.y<-4 and level_index()<30 then next_room() end
+        # next level
+        if self.y<-4 and game.level_index()<30:
+            game.next_room()
 
-        -- was on the ground
+        # was on the ground
         self.was_on_ground=on_ground
 
-    end, --<end update loop
-
-    draw=function(self)
-
-        -- clamp in screen
-        if self.x<-1 or self.x>121 then
+    def draw(self):
+        # clamp in screen
+        if self.x<-1 or self.x>121:
             self.x=clamp(self.x,-1,121)
             self.spd.x=0
-        end
 
         set_hair_color(self.djump)
-        draw_hair(self,self.flip.x and -1 or 1)
-        spr(self.spr,self.x,self.y,1,1,self.flip.x,self.flip.y)
+        draw_hair(self,-1 if self.flip.x else 1)
+        p8.spr(self.spr,self.x,self.y,1,1,self.flip.x,self.flip.y)
         unset_hair_color()
-    end
-}

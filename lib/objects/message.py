@@ -1,31 +1,38 @@
-message={
-	tile=86,
-	last=0,
-	draw=function(this)
-		this.text="-- celeste mountain --#this memorial to those# perished on the climb"
-		if this.check(player,4,0) then
-			if this.index<#this.text then
-			 this.index+=0.5
-				if this.index>=this.last+1 then
-				 this.last+=1
-				 sfx(35)
-				end
-			end
-			this.off={x=8,y=96}
-			for i=1,this.index do
-				if sub(this.text,i,i)~="#" then
-					rectfill(this.off.x-2,this.off.y-2,this.off.x+7,this.off.y+6 ,7)
-					print(sub(this.text,i,i),this.off.x,this.off.y,0)
-					this.off.x+=5
-				else
-					this.off.x=8
-					this.off.y+=7
-				end
-			end
-		else
-			this.index=0
-			this.last=0
-		end
-	end
-}
-add(types,message)
+from celeste import game
+from celeste import geom
+
+from .celeste_object import CelesteObject
+from .player import Player
+from .smoke import Smoke
+
+import pico8 as p8
+
+import math
+
+class Message(CelesteObject):
+    tile=86
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.last = 0
+
+    def draw(self):
+        self.text="-- celeste mountain --#self memorial to those# perished on the climb"
+        if self.check(Player,4,0):
+            if self.index<len(self.text):
+                self.index+=0.5
+                if self.index>=self.last+1:
+                    self.last+=1
+                    p8.sfx(35)
+
+            self.off=geom.Vec(x=8,y=96)
+            for i in range(self.index):
+                if self.text[i] != "#":
+                    p8.rectfill(self.off.x-2,self.off.y-2,self.off.x+7,self.off.y+6 ,7)
+                    p8._print(self.text[i],self.off.x,self.off.y,0)
+                    self.off.x+=5
+                else:
+                    self.off.x=8
+                    self.off.y+=7
+        else:
+            self.index=0
+            self.last=0

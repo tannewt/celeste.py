@@ -1,29 +1,31 @@
-flag = {
-	tile=118,
-	init=function(this)
-		this.x+=5
-		this.score=0
-		this.show=false
-		for i=1,count(got_fruit) do
-			if got_fruit[i] then
-				this.score+=1
-			end
-		end
-	end,
-	draw=function(this)
-		this.spr=118+(frames/5)%3
-		spr(this.spr,this.x,this.y)
-		if this.show then
-			rectfill(32,2,96,31,0)
-			spr(26,55,6)
-			print("x"..this.score,64,9,7)
-			draw_time(49,16)
-			print("deaths:"..deaths,48,24,7)
-		elseif this.check(player,0,0) then
-			sfx(55)
-	  sfx_timer=30
-			this.show=true
-		end
-	end
-}
-add(types,flag)
+from celeste import game
+
+from .celeste_object import CelesteObject
+from .player import Player
+
+import pico8 as p8
+
+class Flag(CelesteObject):
+    tile=118
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.x+=5
+        self.score=0
+        self.show=False
+        for fruit in game.got_fruit:
+            if fruit:
+                self.score+=1
+
+    def draw(self):
+        self.spr=118+(frames/5)%3
+        p8.spr(self.spr,self.x,self.y)
+        if self.show:
+            p8.rectfill(32,2,96,31,0)
+            p8.spr(26,55,6)
+            p8._print("x{}".format(self.score),64,9,7)
+            draw_time(49,16)
+            p8._print("deaths:{}".format(deaths),48,24,7)
+        elif self.check(Player,0,0):
+            p8.sfx(55)
+            game.sfx_timer=30
+            self.show=True

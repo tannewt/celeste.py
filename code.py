@@ -5,22 +5,46 @@ import ugame
 
 import pico8 as p8
 
-from celeste.objects.room_title import RoomTitle
+from celeste.effects.cloud import Cloud
+from celeste.effects.particle import Particle
+from celeste.objects.balloon import Balloon
 from celeste.objects.big_chest import BigChest
+from celeste.objects.chest import Chest
+from celeste.objects.fake_wall import FakeWall
+from celeste.objects.fall_floor import FallFloor
+from celeste.objects.flag import Flag
+from celeste.objects.fly_fruit import FlyFruit
+from celeste.objects.fruit import Fruit
+from celeste.objects.key import Key
+from celeste.objects.message import Message
 from celeste.objects.platform import Platform
 from celeste.objects.player_spawn import PlayerSpawn
+from celeste.objects.room_title import RoomTitle
+from celeste.objects.spring import Spring
 from celeste import game
 from celeste import helper
 
-types = {1: PlayerSpawn}
+# Maps sprite indices to game object
+types = {PlayerSpawn.tile: PlayerSpawn,
+         Key.tile: Key,
+         Spring.tile: Spring,
+         Chest.tile: Chest,
+         Balloon.tile: Balloon,
+         FallFloor.tile: FallFloor,
+         Fruit.tile: Fruit,
+         FlyFruit.tile: FlyFruit,
+         FakeWall.tile: FakeWall,
+         Message.tile: Message,
+         BigChest.tile: BigChest,
+         Flag.tile: Flag,
+         }
 
 def load_room(x,y):
     has_dashed=False
     has_key=False
 
-    # remove existing objects
-    for o in game.objects:
-        destroy_object(o)
+    # reset object list
+    game.objects = []
 
     # current room
     game.room.x = x
@@ -31,9 +55,9 @@ def load_room(x,y):
         for ty in range(16):
             tile = p8.mget(game.room.x*16+tx,game.room.y*16+ty)
             if tile==11:
-                init_object(platform,tx*8,ty*8).dir=-1
+                game.objects.append(Platform(tx*8, ty*8, -1))
             elif tile==12:
-                init_object(platform,tx*8,ty*8).dir=1
+                game.objects.append(Platform(tx*8, ty*8, 1))
             else:
                 if tile in types:
                     game.objects.append(types[tile](tx*8,ty*8))
@@ -153,12 +177,8 @@ def _draw():
 
     # clouds
     if not game.is_title():
-        for c in game.clouds:
-            c.x += c.spd
-            rectfill(c.x,c.y,c.x+c.w,c.y+4+(1-c.w/64)*12,new_bg and 14 or 1)
-            if c.x > 128:
-                c.x = -c.w
-                c.y=rnd(128-8)
+        for c in clouds:
+            c.draw()
 
     # draw bg terrain
     p8._map(game.room.x * 16,game.room.y * 16,0,0,16,16,4)
@@ -181,23 +201,12 @@ def _draw():
     p8._map(game.room.x * 16,game.room.y * 16,0,0,16,16,8)
 
     # particles
-    for p in game.particles:
-        p.x += p.spd
-        p.y += sin(p.off)
-        p.off+= min(0.05,p.spd/32)
-        rectfill(p.x,p.y,p.x+p.s,p.y+p.s,p.c)
-        if p.x>128+4:
-            p.x=-4
-            p.y=rnd(128)
+    for p in particles:
+        p.draw()
 
     # dead particles
     for p in game.dead_particles:
-        p.x += p.spd.x
-        p.y += p.spd.y
-        p.t -=1
-        if p.t <= 0:
-            del(game.dead_particles,p)
-        rectfill(p.x-p.t/5,p.y-p.t/5,p.x+p.t/5,p.y+p.t/5,14+p.t%2)
+        p.draw()
 
     # draw outside of the screen for screenshake
     p8.rectfill(-5,-5,-1,133,0)
@@ -223,6 +232,14 @@ def _draw():
             rectfill(128-diff,0,128,128,0)
 
 p8.load_resources("celeste-original.p8")
+
+clouds = []
+for i in range(16):
+    clouds.append(Cloud(p8.rnd(128), p8.rnd(128), 1+p8.rnd(4), 32+p8.rnd(32)))
+
+particles = []
+for i in range(24):
+    particles.append(Particle(p8.rnd(128), p8.rnd(128), 0+flr(p8.rnd(5)/4), 0.25+rnd(5), rnd(1), 6+flr(0.5+rnd(1))))
 
 # entry point
 title_screen()

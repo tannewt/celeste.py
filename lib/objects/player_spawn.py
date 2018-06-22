@@ -9,6 +9,7 @@ from celeste import helper
 import pico8 as p8
 
 class PlayerSpawn(CelesteObject):
+    tile = 1
     def __init__(self, x, y):
         super().__init__(x, y)
         p8.sfx(4)

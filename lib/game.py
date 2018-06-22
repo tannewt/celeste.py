@@ -19,9 +19,7 @@ frames = 0
 start_game = False
 start_game_flash = False
 new_bg = False
-particles = []
 dead_particles = []
-clouds = []
 seconds = 0
 minutes = 0
 max_djump = 1
@@ -39,3 +37,59 @@ def level_index():
 
 def is_title():
     return level_index()==31
+
+def load_room(x,y):
+    global objects, room
+    has_dashed=False
+    has_key=False
+
+    # reset object list
+    objects = []
+
+    # current room
+    room.x = x
+    room.y = y
+
+    # entities
+    for tx in range(16):
+        for ty in range(16):
+            tile = p8.mget(room.x*16+tx,room.y*16+ty)
+            if tile==11:
+                objects.append(Platform(tx*8, ty*8, -1))
+            elif tile==12:
+                objects.append(Platform(tx*8, ty*8, 1))
+            else:
+                if tile in types:
+                    objects.append(types[tile](tx*8,ty*8))
+
+    if not is_title():
+        objects.append(RoomTitle(0,0))
+
+def restart_room():
+    global will_restart, delay_restart
+    will_restart=True
+    delay_restart=15
+
+def next_room():
+    global will_restart, delay_restart, room
+    will_restart = True
+    delay_restart = 1 # Reset next frame
+
+    if room.x==2 and room.y==1:
+        music(30,500,7)
+    elif room.x==3 and room.y==1:
+        music(20,500,7)
+    elif room.x==4 and room.y==2:
+        music(30,500,7)
+    elif room.x==5 and room.y==3:
+        music(30,500,7)
+
+    if room.x==7:
+        room.x = 0
+        room.y += 1
+    else:
+        room.x += 1
+
+def psfx(num):
+    if sfx_timer <= 0:
+        p8.sfx(num)

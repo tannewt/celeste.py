@@ -1,19 +1,22 @@
-key={
-	tile=8,
-	if_not_fruit=true,
-	update=function(this)
-		local was=flr(this.spr)
-		this.spr=9+(sin(frames/30)+0.5)*1
-		local is=flr(this.spr)
-		if is==10 and is!=was then
-			this.flip.x=not this.flip.x
-		end
-		if this.check(player,0,0) then
-			sfx(23)
-			sfx_timer=10
-			destroy_object(this)
-			has_key=true
-		end
-	end
-}
-add(types,key)
+from celeste import game
+
+from .celeste_object import CelesteObject
+from .player import Player
+
+import pico8 as p8
+
+class Key(CelesteObject):
+    tile=8
+    if_not_fruit=True
+    def update(self):
+        was=p8.flr(self.spr)
+        self.spr=9+(sin(frames/30)+0.5)*1
+        current=p8.flr(self.spr)
+        if current==10 and current!=was:
+            self.flip.x=not self.flip.x
+
+        if self.check(Player,0,0):
+            p8.sfx(23)
+            game.sfx_timer=10
+            game.objects.remove(self)
+            game.has_key=True
