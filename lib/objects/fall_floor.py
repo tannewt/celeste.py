@@ -3,6 +3,7 @@ from celeste import game
 from . import celeste_object
 from .player import Player
 from .smoke import Smoke
+from .spring import Spring
 
 import pico8 as p8
 
@@ -12,14 +13,15 @@ class FallFloor(celeste_object.CelesteObject):
         super().__init__(x, y)
         self.state=0
         self.solid=True
+        self.redraw = True
 
     def _break(self):
         if self.state==0:
             game.psfx(15)
             self.state=1
             self.delay=15 # how long until it falls
-            game.objects.append(Smoke(obj.x,obj.y))
-            spring=obj.collide(Spring,0,-1)
+            game.objects.append(Smoke(self.x,self.y))
+            spring=self.collide(Spring,0,-1)
             if spring:
                 spring._break()
 
@@ -33,6 +35,7 @@ class FallFloor(celeste_object.CelesteObject):
 
         # shaking
         elif self.state==1:
+            self.redraw = True
             self.delay-=1
             if self.delay<=0:
                 self.state=2
@@ -49,6 +52,9 @@ class FallFloor(celeste_object.CelesteObject):
                 game.objects.append(Smoke(self.x,self.y))
 
     def draw(self):
+        if not self.redraw:
+            return
+        self.redraw = False
         if self.state!=2:
             if self.state!=1:
                 p8.spr(23,self.x,self.y)

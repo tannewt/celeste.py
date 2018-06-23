@@ -1,3 +1,5 @@
+import pico8 as p8
+
 class Room:
     def __init__(self, x, y):
         self.x = x
@@ -24,9 +26,9 @@ seconds = 0
 minutes = 0
 max_djump = 1
 
-k_left=0
-k_right=1
-k_up=2
+k_left=2
+k_right=0
+k_up=3
 k_down=1
 k_jump=7
 k_dash=6

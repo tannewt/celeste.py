@@ -1,3 +1,5 @@
+import math
+
 from celeste import game
 
 from .celeste_object import CelesteObject
@@ -10,7 +12,7 @@ class Key(CelesteObject):
     if_not_fruit=True
     def update(self):
         was=p8.flr(self.spr)
-        self.spr=9+(sin(frames/30)+0.5)*1
+        self.spr=9+(math.sin(game.frames / 30)+0.5)*1
         current=p8.flr(self.spr)
         if current==10 and current!=was:
             self.flip.x=not self.flip.x

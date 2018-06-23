@@ -7,6 +7,8 @@ from .lifeup import LifeUp
 
 import pico8 as p8
 
+import math
+
 class Fruit(CelesteObject):
     tile=26
     if_not_fruit=True
@@ -18,11 +20,11 @@ class Fruit(CelesteObject):
     def update(self):
         hit=self.collide(Player,0,0)
         if hit:
-            hit.djump=max_djump
-            sfx_timer=20
+            hit.djump=game.max_djump
+            game.sfx_timer=20
             p8.sfx(13)
-            game.got_fruit[1+game.level_index()] = true
+            game.got_fruit[1+game.level_index()] = True
             game.objects.append(LifeUp(self.x,self.y))
             game.objects.remove(self)
         self.off+=1
-        self.y=self.start+sin(self.off/40)*2.5
+        self.y=self.start+math.sin(self.off/40)*2.5

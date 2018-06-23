@@ -1,6 +1,8 @@
 # ~celeste~
 # matt thorson + noel berry
 # ported to python by scott shawcroft (@tannewt)
+import time
+last_checkpoint = time.monotonic()
 import ugame
 
 import pico8 as p8
@@ -77,7 +79,6 @@ def title_screen():
     load_room(7,3)
 
 def begin_game():
-    global frames, seconds, minutes, music_timer, start_game
     game.frames=0
     game.seconds=0
     game.minutes=0
@@ -231,25 +232,29 @@ def _draw():
             rectfill(0,0,diff,128,0)
             rectfill(128-diff,0,128,128,0)
 
+print("code loaded:", time.monotonic() - last_checkpoint)
+last_checkpoint = time.monotonic()
 p8.load_resources("celeste-original.p8")
+print("resources loaded:", time.monotonic() - last_checkpoint)
 
 clouds = []
-for i in range(1): #is 16 normally
-    clouds.append(Cloud(p8.rnd(128), p8.rnd(128), 1+p8.rnd(4), 32+p8.rnd(32)))
-
+# for i in range(1): #is 16 normally
+#     clouds.append(Cloud(p8.rnd(128), p8.rnd(128), 1+p8.rnd(4), 32+p8.rnd(32)))
+#
 particles = []
-for i in range(1): # was 24
-    particles.append(Particle(p8.rnd(128), p8.rnd(128), 0+p8.flr(p8.rnd(5)/4), 0.25+p8.rnd(5), p8.rnd(1), 6+p8.flr(0.5+p8.rnd(1))))
+# for i in range(1): # was 24
+#     particles.append(Particle(p8.rnd(128), p8.rnd(128), 0+p8.flr(p8.rnd(5)/4), 0.25+p8.rnd(5), p8.rnd(1), 6+p8.flr(0.5+p8.rnd(1))))
 
 # entry point
 title_screen()
 
 i = 0
-#for i in range(81):
+#for _ in range(100):
 while True:
-    #print("tick", i)
+    # print("tick", i)
     _update()
     _draw()
     p8.tick(ugame.display, ugame.buttons.get_pressed())
-    #print()
+    # print(game.objects)
+    # print()
     i += 1

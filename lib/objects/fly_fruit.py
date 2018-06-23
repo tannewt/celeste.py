@@ -1,5 +1,6 @@
 from celeste import game
 from celeste import geom
+from celeste import helper
 
 from .celeste_object import CelesteObject
 from .player import Player
@@ -15,9 +16,9 @@ class FlyFruit(CelesteObject):
     def __init__(self, x, y):
         super().__init__(x, y)
         self.start=self.y
-        self.fly=false
+        self.fly=False
         self.step=0.5
-        self.solids=false
+        self.solids=False
         self.sfx_delay=8
 
     def update(self):
@@ -29,7 +30,7 @@ class FlyFruit(CelesteObject):
                     game.sfx_timer=20
                     p8.sfx(14)
 
-            self.spd.y=appr(self.spd.y,-3.5,0.25)
+            self.spd.y=helper.appr(self.spd.y,-3.5,0.25)
             if self.y<-16:
                 game.objects.remove(self)
         # wait
@@ -54,7 +55,7 @@ class FlyFruit(CelesteObject):
         if not self.fly:
             dir=math.sin(self.step)
             if dir<0:
-                off=1+max(0,sign(self.y-self.start))
+                off=1+max(0,helper.sign(self.y-self.start))
         else:
             off=(off+0.25)%3
         p8.spr(45+off,self.x-6,self.y-2,1,1,True,False)

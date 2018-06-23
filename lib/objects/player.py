@@ -51,8 +51,8 @@ class Player(CelesteObject):
         h = self.hitbox.h
         xspd = self.spd.x
         yspd = self.spd.y
-        for i in range(max(0,p8.flr(x/8)), min(16,(x+w-1)/8+1)):
-            for j in range(max(0,p8.flr(y/8)), min(16,(y+h-1)/8+1)):
+        for i in range(max(0,x//8), min(16,(x+w-1)//8+1)):
+            for j in range(max(0,y//8), min(16,(y+h-1)//8+1)):
                 tile = p8.mget(game.room.x * 16 + i, game.room.y * 16 + j)
                 if tile==17 and ((y+h-1)%8>=6 or y+h==j*8+8) and yspd>=0:
                     return True

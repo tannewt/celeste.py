@@ -1,4 +1,6 @@
 import math
+import time
+
 from .. import helper
 from .. import geom
 
@@ -12,9 +14,11 @@ class Flip:
         self.y = False
 
 class CelesteObject:
+    tile = 0
     def __init__(self, x=0, y=0):
         self.collideable=True
         self.solids=True
+        self.spr = self.tile
 
         self.flip = Flip()
 
@@ -46,8 +50,8 @@ class CelesteObject:
         y = self.y+self.hitbox.y + oy
         w = self.hitbox.w
         h = self.hitbox.h
-        for i in range(max(0 , x // 8), min(15,(x+w-1) // 8+1)):
-            for j in range(max(0 , y // 8), min(15,(y+h-1) // 8 + 1)):
+        for i in range(max(0 , x // 8), min(16,(x+w-1) // 8+1)):
+            for j in range(max(0 , y // 8), min(16,(y+h-1) // 8 + 1)):
                 tile = p8.mget(game.room.x * 16 + i, game.room.y * 16 + j)
                 if p8.fget(tile, flag):
                     return True
@@ -64,6 +68,9 @@ class CelesteObject:
         return self._ice_at(ox, oy)
 
     def move(self, ox, oy):
+        if ox == 0 and oy == 0:
+            return
+        #print("move", time.monotonic())
         # [x] get move amount
         self.rem.x += ox
         amount = math.floor(self.rem.x + 0.5)
@@ -75,6 +82,7 @@ class CelesteObject:
         amount = math.floor(self.rem.y + 0.5)
         self.rem.y -= amount
         self.move_y(amount)
+        #print("move", time.monotonic())
 
     def move_x(self, amount, start):
         if self.solids:
