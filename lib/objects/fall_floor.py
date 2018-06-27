@@ -3,7 +3,7 @@ from celeste import game
 from . import celeste_object
 from .player import Player
 from .smoke import Smoke
-from .spring import Spring
+from . import spring
 
 import pico8 as p8
 
@@ -21,8 +21,8 @@ class FallFloor(celeste_object.CelesteObject):
             self.state=1
             self.delay=15 # how long until it falls
             game.objects.append(Smoke(self.x,self.y))
-            spring=self.collide(Spring,0,-1)
-            if spring:
+            s=self.collide(spring.Spring,0,-1)
+            if s:
                 spring._break()
 
     def update(self):
@@ -64,3 +64,4 @@ class FallFloor(celeste_object.CelesteObject):
 
 # ugly monkey patch to allow CelesteObject to reference FallFloor
 celeste_object.FallFloor = FallFloor
+spring.FallFloor = FallFloor

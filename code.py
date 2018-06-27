@@ -9,12 +9,12 @@ import pico8 as p8
 
 from celeste.effects.cloud import Cloud
 from celeste.effects.particle import Particle
-#from celeste.objects.balloon import Balloon
+from celeste.objects.balloon import Balloon
 from celeste.objects.big_chest import BigChest
 from celeste.objects.chest import Chest
 from celeste.objects.fake_wall import FakeWall
 from celeste.objects.fall_floor import FallFloor
-#from celeste.objects.flag import Flag
+from celeste.objects.flag import Flag
 from celeste.objects.fly_fruit import FlyFruit
 from celeste.objects.fruit import Fruit
 from celeste.objects.key import Key
@@ -31,14 +31,14 @@ types = {PlayerSpawn.tile: PlayerSpawn,
          Key.tile: Key,
          Spring.tile: Spring,
          Chest.tile: Chest,
-         #Balloon.tile: Balloon,
+         Balloon.tile: Balloon,
          FallFloor.tile: FallFloor,
          Fruit.tile: Fruit,
          FlyFruit.tile: FlyFruit,
          FakeWall.tile: FakeWall,
          Message.tile: Message,
          BigChest.tile: BigChest,
-         #Flag.tile: Flag,
+         Flag.tile: Flag,
          }
 
 def load_room(x,y):
@@ -238,12 +238,12 @@ p8.load_resources("celeste-original.p8")
 print("resources loaded:", time.monotonic() - last_checkpoint)
 
 clouds = []
-# for i in range(1): #is 16 normally
-#     clouds.append(Cloud(p8.rnd(128), p8.rnd(128), 1+p8.rnd(4), 32+p8.rnd(32)))
-#
+for i in range(1): #is 16 normally
+    clouds.append(Cloud(p8.rnd(128), p8.rnd(128), 1+p8.rnd(4), 32+p8.rnd(32)))
+
 particles = []
-# for i in range(1): # was 24
-#     particles.append(Particle(p8.rnd(128), p8.rnd(128), 0+p8.flr(p8.rnd(5)/4), 0.25+p8.rnd(5), p8.rnd(1), 6+p8.flr(0.5+p8.rnd(1))))
+for i in range(1): # was 24
+    particles.append(Particle(p8.rnd(128), p8.rnd(128), 0+p8.flr(p8.rnd(5)/4), 0.25+p8.rnd(5), p8.rnd(1), 6+p8.flr(0.5+p8.rnd(1))))
 
 # entry point
 title_screen()

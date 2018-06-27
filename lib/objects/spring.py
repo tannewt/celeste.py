@@ -3,7 +3,6 @@ from celeste import game
 from .celeste_object import CelesteObject
 from .player import Player
 from .smoke import Smoke
-from .fall_floor import FallFloor
 
 class Spring(CelesteObject):
     tile=18

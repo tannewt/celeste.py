@@ -35,13 +35,13 @@ def find_section(f, header):
 def load_gfx(f):
     global sprite_sheet, ss_buffer
     find_section(f, "__gfx__\n")
-    ss_buffer = bytearray(4 * 8 * 16 * 32)
+    ss_buffer = bytearray(4 * 8 * 16 * 16)
     for row in range(128):
         data = f.readline().strip()
         for col in range(64):
             i = row * 64 + col
             ss_buffer[i] = int(data[2 * col + 1], 16) << 4 | int(data[2 * col], 16)
-    sprite_sheet = _stage.SpriteSheet(ss_buffer, 16, 32, bits_per_pixel=4, sprite_width=8, sprite_height=8)
+    sprite_sheet = _stage.SpriteSheet(ss_buffer, 16, 16, bits_per_pixel=4, sprite_width=8, sprite_height=8)
 
 def load_map(f):
     global tile_map
