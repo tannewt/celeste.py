@@ -3,7 +3,11 @@
 # ported to python by scott shawcroft (@tannewt)
 import time
 last_checkpoint = time.monotonic()
-import ugame
+
+import busio
+import displayio
+from microcontroller import pin
+import board
 
 import pico8 as p8
 
@@ -217,9 +221,9 @@ def _draw():
 
     # credits
     if game.is_title():
-        p8._print("x+c",58,80,5)
-        p8._print("matt thorson",42,96,5)
-        p8._print("noel berry",46,102,5)
+        p8._print("A+B",58,80,5)
+        p8._print("MATT THORSON",42,96,5)
+        p8._print("NOEL BERRY",46,102,5)
 
     if game.level_index() == 30:
         p = None
@@ -231,6 +235,14 @@ def _draw():
             diff=min(24,40-abs(p.x+4-64))
             rectfill(0,0,diff,128,0)
             rectfill(128-diff,0,128,128,0)
+
+# displayio.release_displays()
+# spi = busio.SPI(pin.PB13, pin.PB15)
+# bus = displayio.FourWire(spi, command=pin.PB05, chip_select=pin.PB07, reset=pin.PA01)
+# display = adafruit_st7735r.ST7735R(bus, width=160, height=128, backlight_pin=pin.PA00, rotation=270)
+display = board.DISPLAY
+display.auto_brightness = False
+display.brightness = 1
 
 print("code loaded:", time.monotonic() - last_checkpoint)
 last_checkpoint = time.monotonic()
@@ -254,7 +266,7 @@ while True:
     # print("tick", i)
     _update()
     _draw()
-    p8.tick(ugame.display, ugame.buttons.get_pressed())
+    p8.tick(display, None)
     # print(game.objects)
     # print()
     i += 1

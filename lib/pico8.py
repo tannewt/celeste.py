@@ -1,30 +1,41 @@
-import _stage
 import array
 import math
 import random
 import gc
+import time
+import displayio
+import adafruit_imageload
 
 sprite_sheet = None
 tile_map = None
 ss_buffer = None
-default_palette = [0x0000, #000000
-                   0x4351, #1d2b53
-                   0x2f51, #7e2553
-                   0x2054, #008751
-                   0x9532, #ab5236
-                   0xab4a, #5f574f
-                   0x18c6, #c2c3c7
-                   0x9fef, #fff1e8
-                   0x1f48, #ff004d
-                   0x1f05, #ffa300
-                   0x7f27, #ffec27
-                   0x2037, #00e436
-                   0x65fd, #29adff
-                   0xb09b, #83769c
-                   0xbfab, #ff77a8
-                   0x7fae, #ffccaa
+font = None
+default_palette = [0x000000,
+                   0x1d2b53,
+                   0x7e2553,
+                   0x008751,
+                   0xab5236,
+                   0x5f574f,
+                   0xc2c3c7,
+                   0xfff1e8,
+                   0xff004d,
+                   0xffa300,
+                   0xffec27,
+                   0x00e436,
+                   0x29adff,
+                   0x83769c,
+                   0xff77a8,
+                   0xffccaa
 ]
-palette = array.array("H", default_palette)
+single_color = [None]*16
+palette = displayio.Palette(16)
+
+for i, color in enumerate(default_palette):
+    palette[i] = color
+    single_color[i] = displayio.Palette(2)
+    single_color[i].make_transparent(0)
+    single_color[i][1] = color
+palette.make_transparent(0)
 
 def find_section(f, header):
     f.seek(0)
@@ -33,30 +44,41 @@ def find_section(f, header):
         next_line = f.readline()
 
 def load_gfx(f):
-    global sprite_sheet, ss_buffer
+    global sprite_sheet
     find_section(f, "__gfx__\n")
-    ss_buffer = bytearray(4 * 8 * 16 * 16)
+    sprite_sheet = displayio.Bitmap(128, 128, 16)
     for row in range(128):
         data = f.readline().strip()
-        for col in range(64):
-            i = row * 64 + col
-            ss_buffer[i] = int(data[2 * col + 1], 16) << 4 | int(data[2 * col], 16)
-    sprite_sheet = _stage.SpriteSheet(ss_buffer, 16, 16, bits_per_pixel=4, sprite_width=8, sprite_height=8)
+        for col in range(128):
+            i = row * 128 + col
+            sprite_sheet[i] = int(data[col], 16)
+
+def load_flags(f):
+    global sprite_flags
+    find_section(f, "__gff__\n")
+    sprite_flags = bytearray(256)
+    for row in range(2):
+        data = f.readline().strip()
+        for col in range(128):
+            i = row * 128 + col
+            sprite_flags[i] = int(data[2 * col], 16) << 4 | int(data[2 * col + 1], 16)
 
 def load_map(f):
     global tile_map
     find_section(f, "__map__\n")
-    tile_map = bytearray(128 * 64)
+    tile_map = displayio.Bitmap(128, 32, 256)
     for row in range(32):
         data = f.readline().strip()
         for col in range(128):
             i = row * 128 + col
             tile_map[i] = int(data[2 * col], 16) << 4 | int(data[2 * col + 1], 16)
-    # Copy the latter half of the sprite into the map in case its used.
-    tile_map[128*32:] = ss_buffer[128 * 32:]
+
+def load_font():
+    global font
+    font, _ = adafruit_imageload.load("/pico8_font_packed.bmp", bitmap=displayio.Bitmap)
+    print(font)
 
 def load_resources(filename):
-    palette = array.array("H", default_palette)
     with open(filename, "r") as f:
         if f.readline() != "pico-8 cartridge // http://www.pico-8.com\n":
             raise ValueError("File not valid pico-8 cartridge")
@@ -67,6 +89,9 @@ def load_resources(filename):
 
         load_gfx(f)
         load_map(f)
+        load_flags(f)
+
+    load_font()
 
 def music(n, fadems=0, channelmask=0):
     pass
@@ -78,7 +103,11 @@ def mget(celx, cely):
 
 
 def pal(c0=None, c1=None, p=0):
-    pass
+    if c0 == None and c1 == None:
+        for i, color in enumerate(default_palette):
+            palette[i] = color
+    else:
+        palette[c0] = default_palette[c1]
 
 def rectfill(x0, y0, x1, y1, col=None):
     pass
@@ -87,10 +116,9 @@ def circfill(x, y, r, col=None):
     pass
 
 maps = {}
-layers = []
+layers = displayio.Group(max_size=20)
 layer_x = {}
 layer_y = {}
-_buffer = bytearray(320*2*2*4)
 buttons = 0
 min_x = 128
 max_x = 0
@@ -101,89 +129,107 @@ def btn(i, p=0):
     #print("btn", i, p)
     return p == 0 and (buttons & (1 << i)) != 0
 
-def _map(celx, cely, sx, sy, celw, celh, layer=0):
-    global min_x, min_y, max_x, max_y
-    x = -8*celx + sx
-    y = -8*cely + sy - 4
-    if layer not in maps:
-        maps[layer] = _stage.Layer(128, 64, sprite_sheet, palette, tile_map)
+def _map(celx, cely, sx, sy, celw=128, celh=32, layer_id=0):
+    if layer_id not in maps:
+        print(palette)
+        maps[layer_id] = [displayio.TileGrid(sprite_sheet, width=celw, height=celh, pixel_shader=palette, tile_width=8, tile_height=8), -1, -1]
 
-    #print("_map", layer, celx, cely, sx, sy, celw, celh)
+    print("_map", layer_id, celx, cely, sx, sy, celw, celh)
+    layer, last_celx, last_cely = maps[layer_id]
+    layer.x = sx + 16
+    layer.y = sy
 
-    if layer not in layer_x or layer_x[layer] != x or layer_y[layer] != y:
-        maps[layer].move(x, y)
-        layer_x[layer] = x
-        layer_y[layer] = y
-        min_x = 0
-        max_x = 128
-        min_y = 0
-        max_y = 120
-    if layer != 8:
-        layers.append(maps[layer])
+    if celx != last_celx or cely != last_cely:
+        maps[layer_id][1] = celx
+        maps[layer_id][2] = cely
+        for row in range(celw):
+            y = row + cely
+            for col in range(celh):
+                x = col + celx
+                if y > 31:
+                    index_y = 2 * y + x // 64
+                    i = (index_y * 64 + x % 64) * 2
+                    tile_index = sprite_sheet[i] | sprite_sheet[i + 1] << 4
+                else:
+                    tile_index = tile_map[y * 128 + x]
+                flags = sprite_flags[tile_index]
+                if layer_id == 0 or flags & layer_id == layer_id:
+                    layer[row * celw + col] = tile_index
+                else:
+                    layer[row * celw + col] = 0
+
+    layers.append(layer)
+    print("map done")
 
 sprites = {}
 last_dim = (0, 0, 128, 120)
-
+frame_count = 0
+last_time = time.monotonic()
 def tick(display, button_state):
-    global layers, sprites, buttons, min_x, min_y, max_x, max_y, last_dim
-    dim = (min_x, min_y, max_x, max_y)
-    # If we have new dimensions then combine our frames with the previous
-    if last_dim != dim:
-        min_x = min(min_x, last_dim[0])
-        min_y = min(min_y, last_dim[1])
-        max_x = max(max_x, last_dim[2])
-        max_y = max(max_y, last_dim[3])
-    min_x = max(min_x, 0)
-    min_y = max(min_y, 0)
-    max_x = min(max_x, 128)
-    max_y = min(max_y, 120)
-    #print(min_x, min_y, max_x, max_y)
-    last_dim = dim
-    buttons = button_state
-    #print(buttons)
-    if min_x < max_x:
-        display.block(min_x, min_y, max_x, max_y)
-        while not display.spi.try_lock():
-            pass
-        display.spi.configure(baudrate=24000000, polarity=0, phase=0)
-
-        display.cs.value = False
-        # TODO(tannewt): Reverse the layer list automatically
-        layers = list(reversed(layers))
-
-        #print(layers)
-        _stage.render(min_x, min_y, max_x, max_y, layers, _buffer, display.spi, 2)
-        display.cs.value = True
-        display.spi.unlock()
-    # Reset the window
-    min_x = 128
-    max_x = 0
-    min_y = 120
-    max_y = 0
-    layers = []
+    global layers, sprites, buttons, frame_count, last_dim, last_time
+    # sprite = displayio.TileGrid(sprite_sheet, pixel_shader=palette, tile_width=8, tile_height=8)
+    # layers.append(sprite)
+    print("----------")
+    this_time = time.monotonic()
+    print("frame:", frame_count, this_time - last_time)
+    last_time = this_time
+    print(layers, len(layers))
+    if len(layers) > 0 and frame_count > 2:
+        display.show(layers)
+    display.wait_for_frame()
+    layers = displayio.Group(max_size=20)
     # Throw sprites away for now
     sprites = {}
+    frame_count += 1
     #gc.collect()
-    #print("mem free", gc.mem_free())
+    print("mem free", gc.mem_free())
+    print()
 
 def spr(n, x, y, w=1.0, h=1.0, flip_x=False, flip_y=False):
     global min_x, min_y, max_x, max_y
     n = int(n)
-    #print("spr", n, x, y, w, h, flip_x, flip_y)
+    print("spr", n, x, y, w, h, flip_x, flip_y)
     if n not in sprites:
-        sprites[n] = _stage.Layer(1, 1, sprite_sheet, palette)
-    x = int(x)
-    y = int(y)
-    sprites[n].move(x, y - 4)
-    sprites[n].frame(n, flip_x=flip_x, flip_y=flip_y)
-    min_x = min(min_x, x)
-    max_x = max(max_x, x + 8)
-    min_y = min(min_y, y - 4)
-    max_y = max(max_y, y + 4)
-    layers.append(sprites[n])
+        sprites[n] = displayio.TileGrid(sprite_sheet, pixel_shader=palette, tile_width=8, tile_height=8)
 
-def _print(s, x=None, y=None, col=None):
-    pass
+    sprites[n].x = int(x) + 16
+    sprites[n].y = int(y)
+    sprites[n][0] = n
+    layers.append(sprites[n])
+    return sprites[n]
+
+def _print(s, x=None, y=None, color=0):
+    if x is None or y is None:
+        return
+    line_width = 0
+    width = 0
+    height = 1
+    for c in s:
+        if c == '\n':
+            line_width = 0
+            height += 1
+        else:
+            line_width += 1
+            width = max(width, line_width)
+    print(s, x, y, width, height)
+    t = displayio.TileGrid(font, pixel_shader=single_color[color], tile_width=4, tile_height=6,
+                           width=width, height=height, x=x+16, y=y)
+    cursor_y_offset = 0
+    cursor_x = 0
+    for c in s:
+        if c == '\n':
+            cursor_y_offset += width
+            cursor_x = 0
+        else:
+            o = ord(c)
+            if o < 128:
+                t[cursor_y_offset + cursor_x] = o - 0x20
+                cursor_x += 1
+            else:
+                print(c, o)
+                cursor_x += 2
+    layers.append(t)
+    return t
 
 def sfx(n, channel=-1, offset=0, length=None):
     pass
@@ -199,8 +245,6 @@ def camera(x=0, y=0):
 def fget(n, f=0xff):
     if f != 0xff:
         f = 1 << f
-    flags = 0x0
-    if 32 <= n <= 39 or 48 <= n <= 55 or n in (64, 65, 80, 81):
-        flags = 3
+    flags = sprite_flags[n]
     #print("fget", n, f, (flags & f) != 0)
     return (flags & f) != 0
