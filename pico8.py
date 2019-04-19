@@ -3,8 +3,10 @@ import math
 import random
 import gc
 import time
-import displayio
-import adafruit_imageload
+# import displayio
+# import adafruit_imageload
+
+platform = "gb"
 
 sprite_sheet = None
 tile_map = None
@@ -27,15 +29,17 @@ default_palette = [0x000000,
                    0xff77a8,
                    0xffccaa
 ]
-single_color = [None]*16
-palette = displayio.Palette(16)
 
-for i, color in enumerate(default_palette):
-    palette[i] = color
-    single_color[i] = displayio.Palette(2)
-    single_color[i].make_transparent(0)
-    single_color[i][1] = color
-palette.make_transparent(0)
+if platform == "adafruit":
+    single_color = [None]*16
+    palette = displayio.Palette(16)
+
+    for i, color in enumerate(default_palette):
+        palette[i] = color
+        single_color[i] = displayio.Palette(2)
+        single_color[i].make_transparent(0)
+        single_color[i][1] = color
+    palette.make_transparent(0)
 
 def find_section(f, header):
     f.seek(0)
@@ -116,14 +120,11 @@ def circfill(x, y, r, col=None):
     pass
 
 maps = {}
-layers = displayio.Group(max_size=20)
+if platform == "adafruit":
+    layers = displayio.Group(max_size=20)
 layer_x = {}
 layer_y = {}
 buttons = 0
-min_x = 128
-max_x = 0
-min_y = 120
-max_y = 0
 
 def btn(i, p=0):
     #print("btn", i, p)

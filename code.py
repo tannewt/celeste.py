@@ -4,10 +4,10 @@
 import time
 last_checkpoint = time.monotonic()
 
-import busio
-import displayio
-from microcontroller import pin
-import board
+# import busio
+# import displayio
+# from microcontroller import pin
+# import board
 
 import pico8 as p8
 
@@ -240,13 +240,20 @@ def _draw():
 # spi = busio.SPI(pin.PB13, pin.PB15)
 # bus = displayio.FourWire(spi, command=pin.PB05, chip_select=pin.PB07, reset=pin.PA01)
 # display = adafruit_st7735r.ST7735R(bus, width=160, height=128, backlight_pin=pin.PA00, rotation=270)
-display = board.DISPLAY
-display.auto_brightness = False
-display.brightness = 1
+
+if p8.platform == "adafruit":
+    display = board.DISPLAY
+    display.auto_brightness = False
+    display.brightness = 1
 
 print("code loaded:", time.monotonic() - last_checkpoint)
 last_checkpoint = time.monotonic()
-p8.load_resources("celeste-original.p8")
+if p8.platform == "adafruit":
+    p8.load_resources("celeste-original.p8")
+elif p8.platform == "gb":
+    p8.load_resources("celeste-gb.p8")
+elif p8.platform == "gbc":
+    p8.load_resources("celeste-gbc.p8")
 print("resources loaded:", time.monotonic() - last_checkpoint)
 
 clouds = []
