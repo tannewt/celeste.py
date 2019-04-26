@@ -3,13 +3,17 @@ import math
 import random
 import gc
 import time
+import gbio
 # import displayio
 # import adafruit_imageload
+
+from adafruit_gameboy import gb
 
 platform = "gb"
 
 sprite_sheet = None
 tile_map = None
+tile_map2 = None
 ss_buffer = None
 font = None
 default_palette = [0x000000,
@@ -30,6 +34,25 @@ default_palette = [0x000000,
                    0xffccaa
 ]
 
+gameboy_color_mapping = [
+    0,
+    1,
+    1,
+    1,
+    1,
+    1,
+    3,
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+]
+
 if platform == "adafruit":
     single_color = [None]*16
     palette = displayio.Palette(16)
@@ -48,14 +71,30 @@ def find_section(f, header):
         next_line = f.readline()
 
 def load_gfx(f):
-    global sprite_sheet
+    global sprite_sheet, tile_map2
     find_section(f, "__gfx__\n")
-    sprite_sheet = displayio.Bitmap(128, 128, 16)
+    tile_map2 = bytearray(64 * 64)
+    if platform == "adafruit":
+        sprite_sheet = displayio.Bitmap(128, 128, 16)
+        color_mapping = lambda x: x
+    else:
+        sprite_sheet = gb.tiles
+        color_mapping = lambda x: gameboy_color_mapping[x]
+        gb.tiles.auto_show = False
     for row in range(128):
         data = f.readline().strip()
         for col in range(128):
             i = row * 128 + col
-            sprite_sheet[i] = int(data[col], 16)
+            sprite_sheet[i] = color_mapping(int(data[col], 16))
+            if row > 64:
+                i = (row - 64) * 64 + col // 2
+                if col % 2 == 1:
+                    tile_map2[i] += int(data[col], 16) << 4
+                    # print(i, row // 2, col // 2, tile_map2[i], hex(tile_map2[i]))
+                else:
+                    tile_map2[i] = int(data[col], 16)
+        if row % 8 == 7 and platform == "gb":
+            sprite_sheet.show()
 
 def load_flags(f):
     global sprite_flags
@@ -70,7 +109,10 @@ def load_flags(f):
 def load_map(f):
     global tile_map
     find_section(f, "__map__\n")
-    tile_map = displayio.Bitmap(128, 32, 256)
+    if platform == "adafruit":
+        tile_map = displayio.Bitmap(128, 32, 256)
+    else:
+        tile_map = bytearray(128 * 32)
     for row in range(32):
         data = f.readline().strip()
         for col in range(128):
@@ -79,8 +121,9 @@ def load_map(f):
 
 def load_font():
     global font
-    font, _ = adafruit_imageload.load("/pico8_font_packed.bmp", bitmap=displayio.Bitmap)
-    print(font)
+    if platform == "adafruit":
+        font, _ = adafruit_imageload.load("/pico8_font_packed.bmp", bitmap=displayio.Bitmap)
+        print(font)
 
 def load_resources(filename):
     with open(filename, "r") as f:
@@ -103,15 +146,20 @@ def music(n, fadems=0, channelmask=0):
 def mget(celx, cely):
     celx = int(celx)
     cely = int(cely)
-    return tile_map[128 * cely + celx]
-
+    if cely < 32:
+        return tile_map[128 * cely + celx]
+    else:
+        index_y = 2 * cely + celx // 64
+        i = (index_y * 64 + celx % 64) * 2
+        return sprite_sheet[i] | sprite_sheet[i + 1] << 4
 
 def pal(c0=None, c1=None, p=0):
-    if c0 == None and c1 == None:
-        for i, color in enumerate(default_palette):
-            palette[i] = color
-    else:
-        palette[c0] = default_palette[c1]
+    if platform == "adafruit":
+        if c0 == None and c1 == None:
+            for i, color in enumerate(default_palette):
+                palette[i] = color
+        else:
+            palette[c0] = default_palette[c1]
 
 def rectfill(x0, y0, x1, y1, col=None):
     pass
@@ -131,9 +179,13 @@ def btn(i, p=0):
     return p == 0 and (buttons & (1 << i)) != 0
 
 def _map(celx, cely, sx, sy, celw=128, celh=32, layer_id=0):
+    row_padding = 0
     if layer_id not in maps:
-        print(palette)
-        maps[layer_id] = [displayio.TileGrid(sprite_sheet, width=celw, height=celh, pixel_shader=palette, tile_width=8, tile_height=8), -1, -1]
+        if platform == "adafruit":
+            maps[layer_id] = [displayio.TileGrid(sprite_sheet, width=celw, height=celh, pixel_shader=palette, tile_width=8, tile_height=8), -1, -1]
+        elif platform == "gb":
+            maps[layer_id] = [gb.background, -1, -1]
+            row_padding = 32 - celw
 
     print("_map", layer_id, celx, cely, sx, sy, celw, celh)
     layer, last_celx, last_cely = maps[layer_id]
@@ -148,18 +200,21 @@ def _map(celx, cely, sx, sy, celw=128, celh=32, layer_id=0):
             for col in range(celh):
                 x = col + celx
                 if y > 31:
-                    index_y = 2 * y + x // 64
-                    i = (index_y * 64 + x % 64) * 2
-                    tile_index = sprite_sheet[i] | sprite_sheet[i + 1] << 4
+                    i = (y - 32) * 128 + x
+                    tile_index = tile_map2[i]
+                    print(x, y, i, tile_index)
                 else:
                     tile_index = tile_map[y * 128 + x]
                 flags = sprite_flags[tile_index]
                 if layer_id == 0 or flags & layer_id == layer_id:
-                    layer[row * celw + col] = tile_index
+                    layer[row * (celw + row_padding) + col] = tile_index
                 else:
-                    layer[row * celw + col] = 0
+                    layer[row * (celw + row_padding) + col] = 0
 
-    layers.append(layer)
+    if platform == "adafruit":
+        layers.append(layer)
+    else:
+        gbio.get_pressed() # break
     print("map done")
 
 sprites = {}

@@ -9,6 +9,7 @@ last_checkpoint = time.monotonic()
 # from microcontroller import pin
 # import board
 
+from adafruit_gameboy import gb
 import pico8 as p8
 
 from celeste.effects.cloud import Cloud
@@ -203,7 +204,8 @@ def _draw():
             o.draw()
 
     # draw fg terrain
-    p8._map(game.room.x * 16,game.room.y * 16,0,0,16,16,8)
+    if p8.platform != "gb":
+        p8._map(game.room.x * 16,game.room.y * 16,0,0,16,16,8)
 
     # particles
     for p in particles:
