@@ -3,17 +3,19 @@ from celeste import geom
 
 from .player import Player
 from .smoke import Smoke
-from .celeste_object import CelesteObject
+from . import celeste_object
 from celeste import helper
 
 import pico8 as p8
 
-class PlayerSpawn(CelesteObject):
+class PlayerSpawn(celeste_object.CelesteObject):
     tile = 1
-    def __init__(self, x, y):
-        super().__init__(x, y)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        print("init player spawn", self.x, self.y)
         p8.sfx(4)
-        self.spr=3
+        self.spr = 3
+
         self.target= geom.Vec(x=self.x,y=self.y)
         self.y=128
         self.spd.y=-4
@@ -40,7 +42,7 @@ class PlayerSpawn(CelesteObject):
                 self.state=2
                 self.delay=5
                 game.shake=5
-                game.objects.append(Smoke(self.x,self.y+4))
+                game.objects.append(Smoke(x=self.x, y=self.y+4))
                 p8.sfx(5)
         # landing
         elif self.state==2:
@@ -48,10 +50,11 @@ class PlayerSpawn(CelesteObject):
             self.spr=6
             if self.delay<0:
                 game.objects.remove(self)
-                game.objects.append(Player(self.x,self.y))
+                game.objects.append(Player(x=self.x, y=self.y))
 
     def draw(self):
-        helper.set_hair_color(game.max_djump)
-        helper.draw_hair(self,1)
-        p8.spr(self.spr,self.x,self.y,1,1,self.flip.x,self.flip.y)
-        helper.unset_hair_color()
+        # helper.set_hair_color(game.max_djump)
+        # helper.draw_hair(self,1)
+        # helper.unset_hair_color()
+        print("player loc", self.x, self.y, self[0]._oam_indices)
+        pass

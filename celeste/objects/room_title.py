@@ -4,8 +4,8 @@ from celeste import game
 from celeste import helper
 
 class RoomTitle(CelesteObject):
-    def __init__(self, x, y):
-        super().__init__(x, y)
+    def __init__(self, **kwargs):
+        super().__init__(single_tile=False, **kwargs)
         self.delay=5
 
     def draw(self):

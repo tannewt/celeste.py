@@ -12,8 +12,8 @@ import math
 class Fruit(CelesteObject):
     tile=26
     if_not_fruit=True
-    def __init__(self, x, y):
-        super().__init__(x, y)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.start=self.y
         self.off=0
 
@@ -27,4 +27,4 @@ class Fruit(CelesteObject):
             game.objects.append(LifeUp(self.x,self.y))
             game.objects.remove(self)
         self.off+=1
-        self.y=self.start+math.sin(self.off/40)*2.5
+        self.y=self.start+int(math.sin(self.off/40)*2.5)

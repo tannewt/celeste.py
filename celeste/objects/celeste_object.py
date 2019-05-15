@@ -8,22 +8,31 @@ from celeste import game
 
 import pico8 as p8
 
+if p8.platform == "adafruit":
+    import displayio as platform
+else:
+    import adafruit_gameboy as platform
+
 class Flip:
     def __init__(self):
         self.x = False
         self.y = False
 
-class CelesteObject:
+class CelesteObject(platform.Group):
     tile = 0
-    def __init__(self, x=0, y=0):
+    def __init__(self, single_tile=True, **kwargs):
+        super().__init__(**kwargs)
+        print("init celeste object")
         self.collideable=True
         self.solids=True
-        self.spr = self.tile
+
+        self._single_tile = single_tile
+        self._sprite = None
+        if single_tile and self.tile > 0:
+            self.spr = self.tile
 
         self.flip = Flip()
 
-        self.x = x
-        self.y = y
         self.hitbox = geom.Rect(x=0, y=0, w=8, h=8)
 
         self.spd = geom.Vec()
@@ -46,8 +55,8 @@ class CelesteObject:
         return self._tile_flag_at(ox, oy, 4)
 
     def _tile_flag_at(self, ox, oy, flag):
-        x = self.x+self.hitbox.x + ox
-        y = self.y+self.hitbox.y + oy
+        x = self.x + self.hitbox.x + ox
+        y = self.y + self.hitbox.y + oy
         w = self.hitbox.w
         h = self.hitbox.h
         for i in range(max(0 , x // 8), min(16,(x+w-1) // 8+1)):
@@ -88,12 +97,14 @@ class CelesteObject:
         if self.solids:
             step = helper.sign(amount)
             for i in range(start, abs(amount)+1):
-                if not self._is_solid(step, 0):
-                    self.x += step
-                else:
+                if self._is_solid(step * (i - start + 1), 0):
+                    print("solid x", step, i, amount, start)
+                    if i > start:
+                        self.x += step * (i - start)
                     self.spd.x = 0
                     self.rem.x = 0
-                    break
+                    return
+            self.x += step * (abs(amount) + 1)
         else:
             self.x += amount
 
@@ -101,15 +112,29 @@ class CelesteObject:
         if self.solids:
             step = helper.sign(amount)
             for i in range(0, abs(amount)+1):
-                if not self._is_solid(0,step):
-                    self.y += step
-                else:
+                if self._is_solid(0, step * (i + 1)):
+                    print("solid y", step, i, amount)
+                    if i > 0:
+                        self.y += step * i
                     self.spd.y = 0
                     self.rem.y = 0
-                    break
+                    return
+            self.y += step * (abs(amount) + 1)
         else:
             self.y += amount
 
+    @property
+    def spr(self):
+        return self._spr
+
+    @spr.setter
+    def spr(self, s):
+        # s can be a float if used in an animation
+        self._spr = s
+        if self._sprite is None and s > 0 and self._single_tile:
+            self._sprite = platform.TileGrid(p8.sprite_sheet, pixel_shader=None)
+            self.append(self._sprite)
+        self._sprite[0] = int(s)
 
     def check(self, type, ox, oy):
         return self.collide(type,ox,oy) is not None
@@ -118,5 +143,4 @@ class CelesteObject:
         pass
 
     def draw(self):
-        if self.spr > 0:
-            p8.spr(self.spr,self.x,self.y,1,1,self.flip.x,self.flip.y)
+        pass

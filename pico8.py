@@ -3,13 +3,23 @@ import math
 import random
 import gc
 import time
-import gbio
-# import displayio
-# import adafruit_imageload
 
-from adafruit_gameboy import gb
+try:
+    import gbio
+    import adafruit_gameboy as platform
+    from adafruit_gameboy import gb
 
-platform = "gb"
+    platform_id = "gb"
+
+    if gbio.is_color():
+        platform_id = "gbc"
+except ImportError:
+    import displayio as platform
+    import adafruit_imageload
+    import digitalio
+    import board
+    import gamepadshift
+    platform_id = "adafruit"
 
 sprite_sheet = None
 tile_map = None
@@ -35,12 +45,12 @@ default_palette = [0x000000,
 ]
 
 gameboy_color_mapping = [
+    1,
     0,
-    1,
-    1,
-    1,
-    1,
-    1,
+    0,
+    0,
+    0,
+    0,
     3,
     3,
     2,
@@ -53,16 +63,20 @@ gameboy_color_mapping = [
     2
 ]
 
-if platform == "adafruit":
+if platform_id == "adafruit":
     single_color = [None]*16
-    palette = displayio.Palette(16)
+    palette = platform.Palette(16)
 
     for i, color in enumerate(default_palette):
         palette[i] = color
-        single_color[i] = displayio.Palette(2)
+        single_color[i] = platform.Palette(2)
         single_color[i].make_transparent(0)
         single_color[i][1] = color
     palette.make_transparent(0)
+
+    gamepad = gamepadshift.GamePadShift(digitalio.DigitalInOut(board.BUTTON_CLOCK),
+                                        digitalio.DigitalInOut(board.BUTTON_OUT),
+                                        digitalio.DigitalInOut(board.BUTTON_LATCH))
 
 def find_section(f, header):
     f.seek(0)
@@ -72,29 +86,44 @@ def find_section(f, header):
 
 def load_gfx(f):
     global sprite_sheet, tile_map2
+    first = True
     find_section(f, "__gfx__\n")
     tile_map2 = bytearray(64 * 64)
-    if platform == "adafruit":
-        sprite_sheet = displayio.Bitmap(128, 128, 16)
+    if platform_id == "adafruit":
+        sprite_sheet = platform.Bitmap(128, 128, 16)
         color_mapping = lambda x: x
     else:
         sprite_sheet = gb.tiles
         color_mapping = lambda x: gameboy_color_mapping[x]
         gb.tiles.auto_show = False
+    data = bytearray(129)
     for row in range(128):
-        data = f.readline().strip()
+        f.readinto(data)
+        t = time.monotonic()
         for col in range(128):
             i = row * 128 + col
-            sprite_sheet[i] = color_mapping(int(data[col], 16))
+            # Convert from ASCII hex to numeric value.
+            value = data[col]
+            if value >= 0x61:
+                value = 10 + value - 0x61
+            elif value >= 0x41:
+                value = 10 + value - 0x41
+            else:
+                value -= 0x30
+
             if row > 64:
                 i = (row - 64) * 64 + col // 2
                 if col % 2 == 1:
-                    tile_map2[i] += int(data[col], 16) << 4
+                    tile_map2[i] += value << 4
                     # print(i, row // 2, col // 2, tile_map2[i], hex(tile_map2[i]))
                 else:
-                    tile_map2[i] = int(data[col], 16)
-        if row % 8 == 7 and platform == "gb":
-            sprite_sheet.show()
+                    tile_map2[i] = value
+            else:
+                sprite_sheet[i] = color_mapping(value)
+        if row % 8 == 7 and (platform_id == "gb" or platform_id == "gbc"):
+            if first:
+                sprite_sheet.show()
+        #print("row load", row, time.monotonic() - t)
 
 def load_flags(f):
     global sprite_flags
@@ -109,8 +138,8 @@ def load_flags(f):
 def load_map(f):
     global tile_map
     find_section(f, "__map__\n")
-    if platform == "adafruit":
-        tile_map = displayio.Bitmap(128, 32, 256)
+    if platform_id == "adafruit":
+        tile_map = platform.Bitmap(128, 32, 256)
     else:
         tile_map = bytearray(128 * 32)
     for row in range(32):
@@ -121,8 +150,8 @@ def load_map(f):
 
 def load_font():
     global font
-    if platform == "adafruit":
-        font, _ = adafruit_imageload.load("/pico8_font_packed.bmp", bitmap=displayio.Bitmap)
+    if platform_id == "adafruit":
+        font, _ = adafruit_imageload.load("/pico8_font_packed.bmp", bitmap=platform.Bitmap)
         print(font)
 
 def load_resources(filename):
@@ -134,9 +163,16 @@ def load_resources(filename):
         if version != 16:
             print("Unknown version, may not work")
 
+        t = time.monotonic()
         load_gfx(f)
+        print("gfx load", time.monotonic() - t)
+        t = time.monotonic()
         load_map(f)
+        print("map load", time.monotonic() - t)
+        t = time.monotonic()
         load_flags(f)
+        print("flags load", time.monotonic() - t)
+        t = time.monotonic()
 
     load_font()
 
@@ -154,7 +190,7 @@ def mget(celx, cely):
         return sprite_sheet[i] | sprite_sheet[i + 1] << 4
 
 def pal(c0=None, c1=None, p=0):
-    if platform == "adafruit":
+    if platform_id == "adafruit":
         if c0 == None and c1 == None:
             for i, color in enumerate(default_palette):
                 palette[i] = color
@@ -168,54 +204,57 @@ def circfill(x, y, r, col=None):
     pass
 
 maps = {}
-if platform == "adafruit":
-    layers = displayio.Group(max_size=20)
-layer_x = {}
-layer_y = {}
 buttons = 0
 
 def btn(i, p=0):
     #print("btn", i, p)
     return p == 0 and (buttons & (1 << i)) != 0
 
+class _SpeedStub:
+    def __init__(self):
+        self.x = 0
+        self.y = 0
+
+class Map(platform.TileGrid):
+    def __init__(self, bitmap, **kwargs):
+        super().__init__(bitmap, **kwargs)
+        self.spd = _SpeedStub()
+
+    def move(self, dx, dy):
+        pass
+
+    def update(self):
+        pass
+
 def _map(celx, cely, sx, sy, celw=128, celh=32, layer_id=0):
+    print(sprite_sheet)
+    layer = Map(sprite_sheet, width=celw, height=celh, pixel_shader=palette, tile_width=8, tile_height=8)
+
     row_padding = 0
-    if layer_id not in maps:
-        if platform == "adafruit":
-            maps[layer_id] = [displayio.TileGrid(sprite_sheet, width=celw, height=celh, pixel_shader=palette, tile_width=8, tile_height=8), -1, -1]
-        elif platform == "gb":
-            maps[layer_id] = [gb.background, -1, -1]
-            row_padding = 32 - celw
+    if platform_id == "gb" or platform_id == "gbc":
+        row_padding = 32 - celw
 
     print("_map", layer_id, celx, cely, sx, sy, celw, celh)
-    layer, last_celx, last_cely = maps[layer_id]
-    layer.x = sx + 16
+    layer.x = sx
     layer.y = sy
 
-    if celx != last_celx or cely != last_cely:
-        maps[layer_id][1] = celx
-        maps[layer_id][2] = cely
-        for row in range(celw):
-            y = row + cely
-            for col in range(celh):
-                x = col + celx
-                if y > 31:
-                    i = (y - 32) * 128 + x
-                    tile_index = tile_map2[i]
-                    print(x, y, i, tile_index)
-                else:
-                    tile_index = tile_map[y * 128 + x]
-                flags = sprite_flags[tile_index]
-                if layer_id == 0 or flags & layer_id == layer_id:
-                    layer[row * (celw + row_padding) + col] = tile_index
-                else:
-                    layer[row * (celw + row_padding) + col] = 0
+    for row in range(celw):
+        y = row + cely
+        for col in range(celh):
+            x = col + celx
+            if y > 31:
+                i = (y - 32) * 128 + x
+                tile_index = tile_map2[i]
+            else:
+                tile_index = tile_map[y * 128 + x]
+            flags = sprite_flags[tile_index]
+            if layer_id == 0 or flags & layer_id == layer_id:
+                layer[row * (celw + row_padding) + col] = tile_index
+            else:
+                layer[row * (celw + row_padding) + col] = 0
 
-    if platform == "adafruit":
-        layers.append(layer)
-    else:
-        gbio.get_pressed() # break
     print("map done")
+    return layer
 
 sprites = {}
 last_dim = (0, 0, 128, 120)
@@ -223,39 +262,40 @@ frame_count = 0
 last_time = time.monotonic()
 def tick(display, button_state):
     global layers, sprites, buttons, frame_count, last_dim, last_time
-    # sprite = displayio.TileGrid(sprite_sheet, pixel_shader=palette, tile_width=8, tile_height=8)
-    # layers.append(sprite)
-    print("----------")
+    #print("----------")
     this_time = time.monotonic()
-    print("frame:", frame_count, this_time - last_time)
+    #print("frame:", frame_count, this_time - last_time)
     last_time = this_time
-    print(layers, len(layers))
-    if len(layers) > 0 and frame_count > 2:
-        display.show(layers)
+
+    # if True or frame_count > 77 and False:
+    #     for i in range(10):
+    #         display.wait_for_frame()
+    # else:
     display.wait_for_frame()
-    layers = displayio.Group(max_size=20)
-    # Throw sprites away for now
-    sprites = {}
+    if platform_id == "gb" or platform_id == "gbc":
+        buttons = ~gbio.get_pressed() & 0xff
+        #print("buttons", buttons)
+    else:
+        buttons = gamepad.get_pressed()
+        #print("buttons", hex(buttons))
+    # if platform == "adafruit" and frame_count > 10:
+    #     time.sleep(60)
+    #     raise RuntimeError()
+
     frame_count += 1
     #gc.collect()
-    print("mem free", gc.mem_free())
-    print()
+    # print("mem free", gc.mem_free())
+    # print()
 
 def spr(n, x, y, w=1.0, h=1.0, flip_x=False, flip_y=False):
-    global min_x, min_y, max_x, max_y
-    n = int(n)
-    print("spr", n, x, y, w, h, flip_x, flip_y)
-    if n not in sprites:
-        sprites[n] = displayio.TileGrid(sprite_sheet, pixel_shader=palette, tile_width=8, tile_height=8)
-
-    sprites[n].x = int(x) + 16
-    sprites[n].y = int(y)
-    sprites[n][0] = n
-    layers.append(sprites[n])
-    return sprites[n]
+    raise NotImplementedError("Please use a SpritePool to manage sprites")
 
 def _print(s, x=None, y=None, color=0):
     if x is None or y is None:
+        return
+    if platform_id == "gb" or platform_id == "gbc":
+        return
+    if platform_id == "adafruit":
         return
     line_width = 0
     width = 0
@@ -267,7 +307,6 @@ def _print(s, x=None, y=None, color=0):
         else:
             line_width += 1
             width = max(width, line_width)
-    print(s, x, y, width, height)
     t = displayio.TileGrid(font, pixel_shader=single_color[color], tile_width=4, tile_height=6,
                            width=width, height=height, x=x+16, y=y)
     cursor_y_offset = 0

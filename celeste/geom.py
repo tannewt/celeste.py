@@ -3,6 +3,9 @@ class Vec:
         self.x = x
         self.y = y
 
+    def __str__(self):
+        return "({}, {})".format(self.x, self.y)
+
 class Rect:
     def __init__(self, x, y, w, h):
         self.x = x

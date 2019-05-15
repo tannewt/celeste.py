@@ -1,11 +1,16 @@
 import pico8 as p8
 
+import os
+
 class Room:
     def __init__(self, x, y):
         self.x = x
         self.y = y
 room = Room(x=0, y=0)
-objects = []
+if p8.platform_id == "adafruit":
+    objects = []
+else:
+    objects = p8.gb
 freeze=0
 shake=0
 will_restart=False
@@ -26,12 +31,21 @@ seconds = 0
 minutes = 0
 max_djump = 1
 
-k_left=2
-k_right=0
-k_up=3
-k_down=1
-k_jump=7
-k_dash=6
+if p8.platform_id == "adafruit":
+    if "Pybadge" in os.uname().machine:
+        k_left=7
+        k_right=4
+        k_up=6
+        k_down=5
+        k_jump=0 # B
+        k_dash=1 # A
+elif p8.platform_id == "gb" or p8.platform_id == "gbc":
+    k_left=1
+    k_right=0
+    k_up=2
+    k_down=3
+    k_jump=5
+    k_dash=4
 
 
 def level_index():

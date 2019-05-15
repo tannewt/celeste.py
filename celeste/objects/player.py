@@ -12,8 +12,9 @@ from celeste import helper
 import pico8 as p8
 
 class Player(CelesteObject):
-    def __init__(self,x,y):
-        super().__init__(x,y)
+    def __init__(self,**kwargs):
+        super().__init__(**kwargs)
+        print("init player")
         self.p_jump=False
         self.p_dash=False
         self.grace=0
@@ -83,7 +84,7 @@ class Player(CelesteObject):
 
         # smoke particles
         if on_ground and not self.was_on_ground:
-            game.objects.append(Smoke(self.x,self.y+4))
+            game.objects.append(Smoke(x=self.x, y=self.y+4))
 
         jump = p8.btn(game.k_jump) and not self.p_jump
         self.p_jump = p8.btn(game.k_jump)
@@ -105,7 +106,7 @@ class Player(CelesteObject):
 
         self.dash_effect_time -=1
         if self.dash_time > 0:
-            game.objects.append(Smoke(self.x,self.y))
+            game.objects.append(Smoke(x=self.x, y=self.y))
             self.dash_time-=1
             self.spd.x=helper.appr(self.spd.x,self.dash_target.x,self.dash_accel.x)
             self.spd.y=helper.appr(self.spd.y,self.dash_target.y,self.dash_accel.y)
@@ -142,7 +143,7 @@ class Player(CelesteObject):
             if input!=0 and self._is_solid(input,0) and not self._is_ice(input,0):
                 maxfall=0.4
                 if p8.rnd(10)<2:
-                    game.objects.append(Smoke(self.x+input*6,self.y))
+                    game.objects.append(Smoke(x=self.x+input*6,y=self.y))
 
             if not on_ground:
                 self.spd.y=helper.appr(self.spd.y,maxfall,gravity)
@@ -155,7 +156,7 @@ class Player(CelesteObject):
                     self.jbuffer=0
                     self.grace=0
                     self.spd.y=-2
-                    game.objects.append(Smoke(self.x,self.y+4))
+                    game.objects.append(Smoke(x=self.x, y=self.y+4))
                 else:
                     # wall jump
                     wall_dir = 0
@@ -169,14 +170,14 @@ class Player(CelesteObject):
                         self.spd.y=-2
                         self.spd.x=-wall_dir*(maxrun+1)
                         if not self._is_ice(wall_dir*3,0):
-                            game.objects.append(Smoke(self.x+wall_dir*6,self.y))
+                            game.objects.append(Smoke(x=self.x+wall_dir*6,y=self.y))
 
             # dash
             d_full=5
             d_half=d_full*0.70710678118
 
             if self.djump>0 and dash:
-                game.objects.append(Smoke(self.x,self.y))
+                game.objects.append(Smoke(x=self.x, y=self.y))
                 self.djump-=1
                 self.dash_time=4
                 game.has_dashed=True
@@ -218,7 +219,7 @@ class Player(CelesteObject):
                     self.dash_accel.y*=0.70710678118
             elif dash and self.djump<=0:
                 game.psfx(9)
-                game.objects.append(Smoke(self.x,self.y))
+                game.objects.append(Smoke(x=self.x,y=self.y))
 
         # animation
         self.spr_off+=0.25
@@ -249,7 +250,7 @@ class Player(CelesteObject):
             self.x=helper.clamp(self.x,-1,121)
             self.spd.x=0
 
-        helper.set_hair_color(self.djump)
-        helper.draw_hair(self,-1 if self.flip.x else 1)
-        p8.spr(self.spr,self.x,self.y,1,1,self.flip.x,self.flip.y)
-        helper.unset_hair_color()
+        # helper.set_hair_color(self.djump)
+        # helper.draw_hair(self,-1 if self.flip.x else 1)
+        # p8.spr(self.spr,self.x,self.y,1,1,self.flip.x,self.flip.y)
+        # helper.unset_hair_color()

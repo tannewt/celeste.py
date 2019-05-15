@@ -1,6 +1,7 @@
 # ~celeste~
 # matt thorson + noel berry
 # ported to python by scott shawcroft (@tannewt)
+import board
 import time
 last_checkpoint = time.monotonic()
 
@@ -9,7 +10,6 @@ last_checkpoint = time.monotonic()
 # from microcontroller import pin
 # import board
 
-from adafruit_gameboy import gb
 import pico8 as p8
 
 from celeste.effects.cloud import Cloud
@@ -51,26 +51,36 @@ def load_room(x,y):
     has_key=False
 
     # reset object list
-    game.objects = []
+    game.objects = p8.platform.Group(max_size=43)
+    game.objects.x = 16
 
     # current room
     game.room.x = x
     game.room.y = y
+
+    # background map
+    # if p8.platform == "adafruit":
+    #     game.objects.append(p8._map(game.room.x * 16,game.room.y * 16,0,0,16,16,4))
+
+
+    if p8.platform_id == "adafruit":
+        off = -4 if game.is_title() else 0
+        game.objects.append(p8._map(game.room.x*16,game.room.y * 16,off,0,16,16,2))
 
     # entities
     for tx in range(16):
         for ty in range(16):
             tile = p8.mget(game.room.x*16+tx,game.room.y*16+ty)
             if tile==11:
-                game.objects.append(Platform(tx*8, ty*8, -1))
+                game.objects.append(Platform(x=tx*8, y=ty*8, direction=-1))
             elif tile==12:
-                game.objects.append(Platform(tx*8, ty*8, 1))
+                game.objects.append(Platform(x=tx*8, y=ty*8, direction=1))
             else:
                 if tile in types:
-                    game.objects.append(types[tile](tx*8,ty*8))
+                    game.objects.append(types[tile](x=tx*8, y=ty*8))
 
     if not game.is_title():
-        game.objects.append(RoomTitle(0,0))
+        game.objects.append(RoomTitle(x=0, y=0))
 
 def title_screen():
     game.got_fruit = [False] * 30
@@ -181,13 +191,18 @@ def _draw():
         bg_col=2
     p8.rectfill(0,0,128,128,bg_col)
 
+    display.show(game.objects)
+
     # clouds
     if not game.is_title():
         for c in clouds:
             c.draw()
 
     # draw bg terrain
-    p8._map(game.room.x * 16,game.room.y * 16,0,0,16,16,4)
+    # if p8.platform == "adafruit":
+    #     game.objects.append(p8._map(game.room.x * 16,game.room.y * 16,0,0,16,16,4))
+    # else:
+    #     p8._map(game.room.x * 16,game.room.y * 16,0,0,16,16,0)
 
     # platforms/big chest
     for o in game.objects:
@@ -195,17 +210,21 @@ def _draw():
             o.draw()
 
     # draw terrain
-    off = -4 if game.is_title() else 0
-    p8._map(game.room.x*16,game.room.y * 16,off,0,16,16,2)
+    # off = -4 if game.is_title() else 0
+    # if p8.platform == "adafruit":
+    #     p8._map(game.room.x*16,game.room.y * 16,off,0,16,16,2)
 
     # draw objects
     for o in game.objects:
         if not isinstance(o, Platform) and not isinstance(o, BigChest):
-            o.draw()
+            try:
+                o.draw()
+            except AttributeError:
+                pass
 
     # draw fg terrain
-    if p8.platform != "gb":
-        p8._map(game.room.x * 16,game.room.y * 16,0,0,16,16,8)
+    # if p8.platform != "gb" and platform != "gbc":
+    #     p8._map(game.room.x * 16,game.room.y * 16,0,0,16,16,8)
 
     # particles
     for p in particles:
@@ -243,18 +262,20 @@ def _draw():
 # bus = displayio.FourWire(spi, command=pin.PB05, chip_select=pin.PB07, reset=pin.PA01)
 # display = adafruit_st7735r.ST7735R(bus, width=160, height=128, backlight_pin=pin.PA00, rotation=270)
 
-if p8.platform == "adafruit":
+if p8.platform_id == "adafruit":
     display = board.DISPLAY
     display.auto_brightness = False
     display.brightness = 1
+else:
+    display = gb
 
 print("code loaded:", time.monotonic() - last_checkpoint)
 last_checkpoint = time.monotonic()
-if p8.platform == "adafruit":
+if p8.platform_id == "adafruit":
     p8.load_resources("celeste-original.p8")
-elif p8.platform == "gb":
+elif p8.platform_id == "gb":
     p8.load_resources("celeste-gb.p8")
-elif p8.platform == "gbc":
+elif p8.platform_id == "gbc":
     p8.load_resources("celeste-gbc.p8")
 print("resources loaded:", time.monotonic() - last_checkpoint)
 
@@ -269,6 +290,13 @@ for i in range(1): # was 24
 # entry point
 title_screen()
 
+def print_recursive(o, indent=0):
+    print("  "*indent + str(o), o.x, o.y)
+    if not isinstance(o, p8.platform.Group):
+        return
+    for element in o:
+        print_recursive(element, indent=indent+1)
+
 i = 0
 #for _ in range(100):
 while True:
@@ -276,6 +304,6 @@ while True:
     _update()
     _draw()
     p8.tick(display, None)
-    # print(game.objects)
+    #print_recursive(game.objects)
     # print()
     i += 1
