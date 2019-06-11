@@ -100,7 +100,7 @@ def begin_game():
     game.music_timer=0
     game.start_game=False
     p8.music(0,0,7)
-    load_room(0,0)
+    load_room(3,0)
 
 def _update():
     game.frames=((game.frames+1)%30)

@@ -6,8 +6,8 @@ from .celeste_object import CelesteObject
 import pico8 as p8
 
 class LifeUp(CelesteObject):
-    def __init__(self, x, y):
-        super().__init__(x, y)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.spd.y=-0.25
         self.duration=30
         self.x-=2

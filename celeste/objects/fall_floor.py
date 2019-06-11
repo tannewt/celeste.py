@@ -9,8 +9,8 @@ import pico8 as p8
 
 class FallFloor(celeste_object.CelesteObject):
     tile=23
-    def __init__(self, x, y):
-        super().__init__(x, y)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.state=0
         self.solid=True
         self.redraw = True
@@ -20,7 +20,7 @@ class FallFloor(celeste_object.CelesteObject):
             game.psfx(15)
             self.state=1
             self.delay=15 # how long until it falls
-            game.objects.append(Smoke(self.x,self.y))
+            game.objects.append(Smoke(x=self.x, y=self.y))
             s=self.collide(spring.Spring,0,-1)
             if s:
                 spring._break()
@@ -48,8 +48,8 @@ class FallFloor(celeste_object.CelesteObject):
             if self.delay<=0 and not self.check(Player,0,0):
                 game.psfx(7)
                 self.state=0
-                self.collideable=true
-                game.objects.append(Smoke(self.x,self.y))
+                self.collideable=True
+                game.objects.append(Smoke(x=self.x, y=self.y))
 
     def draw(self):
         if not self.redraw:
@@ -57,9 +57,9 @@ class FallFloor(celeste_object.CelesteObject):
         self.redraw = False
         if self.state!=2:
             if self.state!=1:
-                p8.spr(23,self.x,self.y)
+                self.spr = 23
             else:
-                p8.spr(23+(15-self.delay)/5,self.x,self.y)
+                self.spr = 23 + (15 - self.delay) // 5
 
 
 # ugly monkey patch to allow CelesteObject to reference FallFloor

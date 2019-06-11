@@ -13,13 +13,19 @@ import math
 class FlyFruit(CelesteObject):
     tile=28
     if_not_fruit = True
-    def __init__(self, x, y):
-        super().__init__(x, y)
+    def __init__(self, **kwargs):
+        super().__init__(single_tile=False, **kwargs)
         self.start=self.y
         self.fly=False
         self.step=0.5
         self.solids=False
         self.sfx_delay=8
+        self.left = p8.platform.TileGrid(p8.sprite_sheet, pixel_shader=p8.palette, tile_width=8, tile_height=8, x=-6, y=-2)
+        self.main = p8.platform.TileGrid(p8.sprite_sheet, pixel_shader=p8.palette, tile_width=8, tile_height=8)
+        self.right = p8.platform.TileGrid(p8.sprite_sheet, pixel_shader=p8.palette, tile_width=8, tile_height=8, x=6, y=-2)
+        self.append(self.left)
+        self.append(self.main)
+        self.append(self.right)
 
     def update(self):
         # fly away
@@ -58,6 +64,6 @@ class FlyFruit(CelesteObject):
                 off=1+max(0,helper.sign(self.y-self.start))
         else:
             off=(off+0.25)%3
-        p8.spr(45+off,self.x-6,self.y-2,1,1,True,False)
-        p8.spr(self.spr,self.x,self.y)
-        p8.spr(45+off,self.x+6,self.y-2)
+        self.left[0] = 45+off
+        self.main[0] = 28
+        self.right[0] = 45+off

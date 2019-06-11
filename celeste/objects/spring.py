@@ -6,8 +6,8 @@ from .smoke import Smoke
 
 class Spring(CelesteObject):
     tile=18
-    def __init__(self, x, y):
-        super().__init__(x, y)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.hide_in=0
         self.hide_for=0
 
@@ -29,7 +29,7 @@ class Spring(CelesteObject):
                 hit.spd.y=-3
                 hit.djump=game.max_djump
                 self.delay=10
-                game.objects.append(Smoke(self.x,self.y))
+                game.objects.append(Smoke(x=self.x, y=self.y))
 
                 # breakable below us
                 below=self.collide(FallFloor,0,1)

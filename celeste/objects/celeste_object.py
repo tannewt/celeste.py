@@ -8,21 +8,15 @@ from celeste import game
 
 import pico8 as p8
 
-if p8.platform == "adafruit":
-    import displayio as platform
-else:
-    import adafruit_gameboy as platform
-
 class Flip:
     def __init__(self):
         self.x = False
         self.y = False
 
-class CelesteObject(platform.Group):
+class CelesteObject(p8.platform.Group):
     tile = 0
     def __init__(self, single_tile=True, **kwargs):
         super().__init__(**kwargs)
-        print("init celeste object")
         self.collideable=True
         self.solids=True
 
@@ -37,6 +31,8 @@ class CelesteObject(platform.Group):
 
         self.spd = geom.Vec()
         self.rem = geom.Vec()
+        self._x = 0
+        self._y = 0
 
     def collide(self, type, ox, oy):
         for other in game.objects:
@@ -98,7 +94,6 @@ class CelesteObject(platform.Group):
             step = helper.sign(amount)
             for i in range(start, abs(amount)+1):
                 if self._is_solid(step * (i - start + 1), 0):
-                    print("solid x", step, i, amount, start)
                     if i > start:
                         self.x += step * (i - start)
                     self.spd.x = 0
@@ -113,7 +108,6 @@ class CelesteObject(platform.Group):
             step = helper.sign(amount)
             for i in range(0, abs(amount)+1):
                 if self._is_solid(0, step * (i + 1)):
-                    print("solid y", step, i, amount)
                     if i > 0:
                         self.y += step * i
                     self.spd.y = 0
@@ -132,7 +126,7 @@ class CelesteObject(platform.Group):
         # s can be a float if used in an animation
         self._spr = s
         if self._sprite is None and s > 0 and self._single_tile:
-            self._sprite = platform.TileGrid(p8.sprite_sheet, pixel_shader=None)
+            self._sprite = p8.platform.TileGrid(p8.sprite_sheet, pixel_shader=p8.palette, tile_width=8, tile_height=8)
             self.append(self._sprite)
         self._sprite[0] = int(s)
 
@@ -144,3 +138,31 @@ class CelesteObject(platform.Group):
 
     def draw(self):
         pass
+
+    # # We mask x because we need it to be a float.
+    # @property
+    # def x(self):
+    #     return self._x
+    #
+    # @x.setter
+    # def x(self, value):
+    #     print("set x", value)
+    #     self._x = value
+    #     #super(p8.platform.Group, self).x = int(value)
+    #     p8.platform.Group.x.fset()(self, int(value))
+    #
+    #
+    # # We mask y because we need it to be a float.
+    # @property
+    # def y(self):
+    #     print("get y", self._y)
+    #     return self._y
+    #
+    # @x.setter
+    # def y(self, value):
+    #     print("set y", value)
+    #     if value == 0:
+    #         print(self.spd)
+    #         # raise RuntimeError()
+    #     self._y = value
+    #     p8.platform.Group.y.fset()(self, int(value))

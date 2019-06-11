@@ -24,7 +24,7 @@ class Fruit(CelesteObject):
             game.sfx_timer=20
             p8.sfx(13)
             game.got_fruit[1+game.level_index()] = True
-            game.objects.append(LifeUp(self.x,self.y))
+            game.objects.append(LifeUp(x=self.x,y=self.y))
             game.objects.remove(self)
         self.off+=1
         self.y=self.start+int(math.sin(self.off/40)*2.5)
