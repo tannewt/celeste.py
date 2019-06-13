@@ -2,14 +2,21 @@
 from . import celeste_object
 from .player import Player
 
+import pico8 as p8
+
 class Platform(celeste_object.CelesteObject):
-    def __init__(self, x, y, dir):
-        super().__init__(x, y)
+    def __init__(self, *, direction, **kwargs):
+        super().__init__(single_tile=False, **kwargs)
         self.x-=4
         self.solids=False
         self.hitbox.w=16
         self.last=self.x
-        self.dir = dir
+        self.dir = direction
+
+        tg = p8.platform.TileGrid(p8.sprite_sheet, pixel_shader=p8.palette, width=2, height=1, tile_width=8, tile_height=8, y=-1)
+        tg[0] = 11
+        tg[1] = 12
+        self.append(tg)
 
     def update(self):
         self.spd.x=self.dir*0.65
@@ -24,8 +31,7 @@ class Platform(celeste_object.CelesteObject):
         self.last=self.x
 
     def draw(self):
-        spr(11,self.x,self.y-1)
-        spr(12,self.x+8,self.y-1)
+        pass
 
 # ugly monkey patch to allow CelesteObject to reference Platform
 celeste_object.Platform = Platform

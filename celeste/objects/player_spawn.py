@@ -50,7 +50,8 @@ class PlayerSpawn(celeste_object.CelesteObject):
             self.spr=6
             if self.delay<0:
                 game.objects.remove(self)
-                game.objects.append(Player(x=self.x, y=self.y))
+                game.player = Player(x=self.x, y=self.y)
+                game.objects.append(game.player)
 
     def draw(self):
         # helper.set_hair_color(game.max_djump)

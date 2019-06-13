@@ -14,6 +14,8 @@ class LifeUp(CelesteObject):
         self.y-=4
         self.flash=0
         self.solids=False
+        self._text = p8._print("1000",-2,0,7)
+        self.append(self._text)
 
     def update(self):
         self.duration-=1
@@ -21,6 +23,6 @@ class LifeUp(CelesteObject):
             game.objects.remove(self)
 
     def draw(self):
-        self.flash+=0.5
-
-        p8._print("1000",self.x-2,self.y,7+self.flash%2)
+        # self.flash+=0.5
+        # Normally flashes but we may not have the palette to do it on gameboy so skip.
+        pass

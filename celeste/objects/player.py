@@ -27,6 +27,7 @@ class Player(CelesteObject):
         self.hitbox = geom.Rect(x=1,y=3,w=6,h=5)
         self.spr_off=0
         self.was_on_ground=False
+        self.spr=3
         helper.create_hair(self)
 
     def _die(self):
@@ -34,6 +35,7 @@ class Player(CelesteObject):
         p8.sfx(0)
         game.deaths+=1
         game.shake=10
+        game.player = None
         game.objects.remove(self)
         game.dead_particles=[]
         for dir in range(8):
@@ -120,7 +122,7 @@ class Player(CelesteObject):
                 accel=0.4
             elif on_ice:
                 accel=0.05
-                if input==(-1 if self.flip.x else 1):
+                if input==(-1 if self.flip_x else 1):
                     accel=0.05
 
             if abs(self.spd.x) > maxrun:
@@ -130,7 +132,7 @@ class Player(CelesteObject):
 
             # facing
             if self.spd.x!=0:
-                self.flip.x=(self.spd.x<0)
+                self.flip_x = (self.spd.x<0)
 
             # gravity
             maxfall=2
@@ -198,7 +200,7 @@ class Player(CelesteObject):
                     self.spd.x=0
                     self.spd.y=v_input*d_full
                 else:
-                    self.spd.x=(-1 if self.flip.x else 1)
+                    self.spd.x=(-1 if self.flip_x else 1)
                     self.spd.y=0
 
                 game.psfx(3)

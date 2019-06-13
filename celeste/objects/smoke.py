@@ -12,8 +12,8 @@ class Smoke(CelesteObject):
         self.spd.x=0.3+p8.rnd(0.2)
         self.x+=int(-1+p8.rnd(2))
         self.y+=int(-1+p8.rnd(2))
-        self.flip.x=helper.maybe()
-        self.flip.y=helper.maybe()
+        self.flip_x=helper.maybe()
+        self.flip_y=helper.maybe()
         self.solids=False
 
     def update(self):

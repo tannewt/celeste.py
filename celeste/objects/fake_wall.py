@@ -25,7 +25,7 @@ class FakeWall(celeste_object.CelesteObject):
 
     def update(self):
         self.hitbox = geom.Rect(x=-1,y=-1,w=18,h=18)
-        hit = self.collide(Player,0,0)
+        hit = self.collide_with_player(0,0)
         if hit and hit.dash_effect_time>0:
             hit.spd.x=-helper.sign(hit.spd.x)*1.5
             hit.spd.y=-1.5

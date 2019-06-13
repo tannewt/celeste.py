@@ -18,7 +18,7 @@ class Fruit(CelesteObject):
         self.off=0
 
     def update(self):
-        hit=self.collide(Player,0,0)
+        hit=self.collide_with_player(0,0)
         if hit:
             hit.djump=game.max_djump
             game.sfx_timer=20

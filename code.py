@@ -59,8 +59,8 @@ def load_room(x,y):
     game.room.y = y
 
     # background map
-    # if p8.platform == "adafruit":
-    #     game.objects.append(p8._map(game.room.x * 16,game.room.y * 16,0,0,16,16,4))
+    if p8.platform_id == "adafruit":
+        game.objects.append(p8._map(game.room.x * 16,game.room.y * 16,0,0,16,16,4))
 
 
     if p8.platform_id == "adafruit":
@@ -81,6 +81,11 @@ def load_room(x,y):
 
     if not game.is_title():
         game.objects.append(RoomTitle(x=0, y=0))
+    else:
+        # credits
+        game.objects.append(p8._print("A+B",58,80,5))
+        game.objects.append(p8._print("MATT THORSON",42,96,5))
+        game.objects.append(p8._print("NOEL BERRY",46,102,5))
 
 def title_screen():
     game.got_fruit = [False] * 30
@@ -100,7 +105,7 @@ def begin_game():
     game.music_timer=0
     game.start_game=False
     p8.music(0,0,7)
-    load_room(3,0)
+    load_room(5,0)
 
 def _update():
     game.frames=((game.frames+1)%30)
@@ -239,12 +244,6 @@ def _draw():
     p8.rectfill(-5,-5,133,-1,0)
     p8.rectfill(-5,128,133,133,0)
     p8.rectfill(128,-5,133,133,0)
-
-    # credits
-    if game.is_title():
-        p8._print("A+B",58,80,5)
-        p8._print("MATT THORSON",42,96,5)
-        p8._print("NOEL BERRY",46,102,5)
 
     if game.level_index() == 30:
         p = None

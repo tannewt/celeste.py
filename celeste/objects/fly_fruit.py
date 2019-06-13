@@ -8,8 +8,6 @@ from .lifeup import LifeUp
 
 import pico8 as p8
 
-import math
-
 class FlyFruit(CelesteObject):
     tile=28
     if_not_fruit = True
@@ -21,6 +19,7 @@ class FlyFruit(CelesteObject):
         self.solids=False
         self.sfx_delay=8
         self.left = p8.platform.TileGrid(p8.sprite_sheet, pixel_shader=p8.palette, tile_width=8, tile_height=8, x=-6, y=-2)
+        self.left.flip_x = True
         self.main = p8.platform.TileGrid(p8.sprite_sheet, pixel_shader=p8.palette, tile_width=8, tile_height=8)
         self.right = p8.platform.TileGrid(p8.sprite_sheet, pixel_shader=p8.palette, tile_width=8, tile_height=8, x=6, y=-2)
         self.append(self.left)
@@ -44,7 +43,7 @@ class FlyFruit(CelesteObject):
             if game.has_dashed:
                 self.fly=True
             self.step+=0.05
-            self.spd.y=math.sin(self.step)*0.5
+            self.spd.y=p8.sin(self.step)*0.5
 
         # collect
         hit=self.collide(Player,0,0)
@@ -53,17 +52,17 @@ class FlyFruit(CelesteObject):
             game.sfx_timer=20
             p8.sfx(13)
             game.got_fruit[1+game.level_index()] = True
-            game.objects.append(LifeUp(self.x,self.y))
+            game.objects.append(LifeUp(x=self.x, y=self.y))
             game.objects.remove(self)
 
     def draw(self):
         off=0
         if not self.fly:
-            dir=math.sin(self.step)
+            dir=p8.sin(self.step)
             if dir<0:
-                off=1+max(0,helper.sign(self.y-self.start))
+                off=int(1+max(0,helper.sign(self.y-self.start)))
         else:
-            off=(off+0.25)%3
+            off=int((off+0.25)%3)
         self.left[0] = 45+off
         self.main[0] = 28
         self.right[0] = 45+off

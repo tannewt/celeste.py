@@ -219,6 +219,7 @@ class Map(platform.TileGrid):
     def __init__(self, bitmap, **kwargs):
         super().__init__(bitmap, **kwargs)
         self.spd = _SpeedStub()
+        self.collideable = False
 
     def move(self, dx, dy):
         pass
@@ -295,8 +296,6 @@ def _print(s, x=None, y=None, color=0):
         return
     if platform_id == "gb" or platform_id == "gbc":
         return
-    if platform_id == "adafruit":
-        return
     line_width = 0
     width = 0
     height = 1
@@ -307,8 +306,8 @@ def _print(s, x=None, y=None, color=0):
         else:
             line_width += 1
             width = max(width, line_width)
-    t = displayio.TileGrid(font, pixel_shader=single_color[color], tile_width=4, tile_height=6,
-                           width=width, height=height, x=x+16, y=y)
+    t = Map(font, pixel_shader=single_color[color], tile_width=4, tile_height=6,
+                           width=width, height=height, x=x, y=y)
     cursor_y_offset = 0
     cursor_x = 0
     for c in s:
@@ -321,9 +320,7 @@ def _print(s, x=None, y=None, color=0):
                 t[cursor_y_offset + cursor_x] = o - 0x20
                 cursor_x += 1
             else:
-                print(c, o)
                 cursor_x += 2
-    layers.append(t)
     return t
 
 def sfx(n, channel=-1, offset=0, length=None):
@@ -336,6 +333,11 @@ def rnd(end):
 
 def camera(x=0, y=0):
     pass
+
+# Pico-8's sin is in angle 0-1.0 while Python is in radians.
+TWO_PI = math.pi * 2
+def sin(turns):
+    return math.sin(turns * TWO_PI)
 
 def fget(n, f=0xff):
     if f != 0xff:

@@ -34,9 +34,19 @@ class CelesteObject(p8.platform.Group):
         self._x = 0
         self._y = 0
 
+    def collide_with_player(self, ox, oy):
+        other = game.player
+        if (other and other.collideable and
+            other.x+other.hitbox.x+other.hitbox.w > self.x+self.hitbox.x+ox and
+            other.y+other.hitbox.y+other.hitbox.h > self.y+self.hitbox.y+oy and
+            other.x+other.hitbox.x < self.x+self.hitbox.x+self.hitbox.w+ox and
+            other.y+other.hitbox.y < self.y+self.hitbox.y+self.hitbox.h+oy):
+            return game.player
+        return None
+
     def collide(self, type, ox, oy):
         for other in game.objects:
-            if (other and isinstance(other, type) and other != self and other.collideable and
+            if (other and other.collideable and isinstance(other, type) and other != self and
                 other.x+other.hitbox.x+other.hitbox.w > self.x+self.hitbox.x+ox and
                 other.y+other.hitbox.y+other.hitbox.h > self.y+self.hitbox.y+oy and
                 other.x+other.hitbox.x < self.x+self.hitbox.x+self.hitbox.w+ox and
@@ -63,6 +73,7 @@ class CelesteObject(p8.platform.Group):
         return False
 
     def _is_solid(self, ox, oy):
+        #return self._solid_at(ox, oy)
         if oy>0 and not self.check(Platform,ox,0) and self.check(Platform,ox,oy):
             return True
         return (self._solid_at(ox, oy)
@@ -130,7 +141,21 @@ class CelesteObject(p8.platform.Group):
             self.append(self._sprite)
         self._sprite[0] = int(s)
 
+    @property
+    def flip_x(self):
+        if self._sprite:
+            return self._sprite.flip_x
+        return self._flip_x
+
+    @flip_x.setter
+    def flip_x(self, flip):
+        if self._sprite is None:
+            self._flip_x = flip
+        self._sprite.flip_x = flip
+
     def check(self, type, ox, oy):
+        # print("collide", self, type, ox, oy)
+        # return False
         return self.collide(type,ox,oy) is not None
 
     def update(self):

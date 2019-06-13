@@ -30,6 +30,7 @@ dead_particles = []
 seconds = 0
 minutes = 0
 max_djump = 1
+player = None
 
 if p8.platform_id == "adafruit":
     if "Pybadge" in os.uname().machine:
