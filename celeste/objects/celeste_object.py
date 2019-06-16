@@ -45,12 +45,18 @@ class CelesteObject(p8.platform.Group):
         return None
 
     def collide(self, type, ox, oy):
-        for other in game.objects:
-            if (other and other.collideable and isinstance(other, type) and other != self and
-                other.x+other.hitbox.x+other.hitbox.w > self.x+self.hitbox.x+ox and
-                other.y+other.hitbox.y+other.hitbox.h > self.y+self.hitbox.y+oy and
-                other.x+other.hitbox.x < self.x+self.hitbox.x+self.hitbox.w+ox and
-                other.y+other.hitbox.y < self.y+self.hitbox.y+self.hitbox.h+oy):
+        if type not in game.objects_by_type:
+            return None
+        x1 = self.x+self.hitbox.x+ox
+        y1 = self.y+self.hitbox.y+oy
+        x2 = x1+self.hitbox.w
+        y2 = y1+self.hitbox.h
+        for other in game.objects_by_type[type]:
+            if (other and other.collideable and other != self and
+                other.x+other.hitbox.x+other.hitbox.w > x1 and
+                other.y+other.hitbox.y+other.hitbox.h > y1 and
+                other.x+other.hitbox.x < x2 and
+                other.y+other.hitbox.y < y2):
                 return other
         return None
 

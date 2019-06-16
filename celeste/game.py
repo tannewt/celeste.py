@@ -11,6 +11,7 @@ if p8.platform_id == "adafruit":
     objects = []
 else:
     objects = p8.gb
+objects_by_type = {}
 freeze=0
 shake=0
 will_restart=False

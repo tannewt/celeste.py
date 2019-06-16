@@ -71,10 +71,15 @@ def load_room(x,y):
     for tx in range(16):
         for ty in range(16):
             tile = p8.mget(game.room.x*16+tx,game.room.y*16+ty)
-            if tile==11:
-                game.objects.append(Platform(x=tx*8, y=ty*8, direction=-1))
-            elif tile==12:
-                game.objects.append(Platform(x=tx*8, y=ty*8, direction=1))
+            if tile==11 or tile == 12:
+                direction = -1
+                if tile == 12:
+                    direction = 1
+                p = Platform(x=tx*8, y=ty*8, direction=direction)
+                game.objects.append(p)
+                if Platform not in game.objects_by_type:
+                    game.objects_by_type[Platform]
+                game.objects_by_type[Platform].append(p)
             else:
                 if tile in types:
                     game.objects.append(types[tile](x=tx*8, y=ty*8))
@@ -105,7 +110,7 @@ def begin_game():
     game.music_timer=0
     game.start_game=False
     p8.music(0,0,7)
-    load_room(5,0)
+    load_room(6,0)
 
 def _update():
     game.frames=((game.frames+1)%30)
