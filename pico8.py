@@ -5,13 +5,13 @@ import gc
 import time
 
 try:
-    import gbio
+    import _gbio
     import adafruit_gameboy as platform
     from adafruit_gameboy import gb
 
     platform_id = "gb"
 
-    if gbio.is_color():
+    if _gbio.is_color():
         platform_id = "gbc"
 except ImportError:
     import displayio as platform
@@ -77,6 +77,8 @@ if platform_id == "adafruit":
     gamepad = gamepadshift.GamePadShift(digitalio.DigitalInOut(board.BUTTON_CLOCK),
                                         digitalio.DigitalInOut(board.BUTTON_OUT),
                                         digitalio.DigitalInOut(board.BUTTON_LATCH))
+else:
+    palette = None
 
 def find_section(f, header):
     f.seek(0)
@@ -87,6 +89,25 @@ def find_section(f, header):
 def load_gfx(f):
     global sprite_sheet, tile_map2
     first = True
+    # # Set the background palette
+    gb[0xff68] = 0x80
+    gb[0xff6a] = 0x80
+    for i in range(8):
+        # Index 0
+        gb[0xff69] = 0x00
+        gb[0xff69] = 0x0f
+
+        # Index 1
+        gb[0xff69] = 0xf0
+        gb[0xff69] = 0x00
+
+        # Index 2
+        gb[0xff69] = 0x0f
+        gb[0xff69] = 0x00
+
+        # Index 3
+        gb[0xff69] = 0x00
+        gb[0xff69] = 0xf0
     find_section(f, "__gfx__\n")
     tile_map2 = bytearray(64 * 64)
     if platform_id == "adafruit":
@@ -229,7 +250,10 @@ class Map(platform.TileGrid):
 
 def _map(celx, cely, sx, sy, celw=128, celh=32, layer_id=0):
     print(sprite_sheet)
-    layer = Map(sprite_sheet, width=celw, height=celh, pixel_shader=palette, tile_width=8, tile_height=8)
+    if platform_id == "adafruit":
+        layer = Map(sprite_sheet, width=celw, height=celh, pixel_shader=palette, tile_width=8, tile_height=8)
+    else:
+        layer = gb.background
 
     row_padding = 0
     if platform_id == "gb" or platform_id == "gbc":
@@ -274,7 +298,7 @@ def tick(display, button_state):
     # else:
     display.wait_for_frame()
     if platform_id == "gb" or platform_id == "gbc":
-        buttons = ~gbio.get_pressed() & 0xff
+        buttons = ~_gbio.get_pressed() & 0xff
         #print("buttons", buttons)
     else:
         buttons = gamepad.get_pressed()

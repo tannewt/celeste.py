@@ -21,7 +21,7 @@ class Spring(CelesteObject):
                 self.spr=18
                 self.delay=0
         elif self.spr==18:
-            hit = self.collide(Player,0,0)
+            hit = self.collide_with_player(0,0)
             if hit and hit.spd.y>=0:
                 self.spr=19
                 hit.y=self.y-4

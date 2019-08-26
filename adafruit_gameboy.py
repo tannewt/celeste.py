@@ -1,10 +1,16 @@
-import gbio
+import _gbio
+
+class _SpeedStub:
+    def __init__(self):
+        self.x = 0
+        self.y = 0
 
 class Background:
     def __init__(self, gb):
         self._gb = gb
         self._x = 0
         self._y = 0
+        self.spd = _SpeedStub()
 
     @property
     def x(self):
@@ -13,7 +19,7 @@ class Background:
     @x.setter
     def x(self, value):
         self._x = value
-        self._gb[0xff43] = 255 - value
+        self._gb[0xff43] = 255 - value - 16
 
     @property
     def y(self):
@@ -23,6 +29,18 @@ class Background:
     def y(self, value):
         self._y = value
         self._gb[0xff42] = 255 - value
+
+    def move(self, x, y):
+        pass
+
+    def update(self):
+        pass
+
+    def _show(self, indices):
+        pass
+
+    def _hide(self):
+        pass
 
     def __setitem__(self, index, value):
         if isinstance(index, tuple):
@@ -90,7 +108,7 @@ class AbsolutePositioner:
         self._update_y()
 
 class TileGrid(AbsolutePositioner):
-    def __init__(self, bitmap, *, pixel_shader, width=1, height=1, **kwargs):
+    def __init__(self, bitmap, *, pixel_shader, width=1, height=1, tile_height=8, tile_width=8, **kwargs):
         self._gb = gb
         self._width = width
         self._height = height
@@ -105,7 +123,7 @@ class TileGrid(AbsolutePositioner):
     def __setitem__(self, index, value):
         if self._oam_entries[index][2] == value:
             return
-        print("set sprite", self._oam_indices, index, value)
+        # print("set sprite", self._oam_indices, index, value)
         self._oam_entries[index][2] = value
         if self._oam_indices[index] is not None:
             offset = self._compute_oam_address(index) + 2
@@ -113,13 +131,13 @@ class TileGrid(AbsolutePositioner):
 
     def _update_x(self):
         value = int(self._absolute_x + self.x)
-        print("set sprite x", self, self._oam_indices, value)
+        # print("set sprite x", self, self._oam_indices, value)
         if self._last_value is not None and self._free_indices is not None and value - self._last_value == 16:
             raise RuntimeError()
         self._last_value = value
         for x in range(self._width):
             for y in range(self._height):
-                i = x * self._width + y
+                i = x * self._height + y
                 v = value + 8 * x + 8
                 self._oam_entries[i][1] = v
                 if self._oam_indices[i] is not None:
@@ -128,11 +146,13 @@ class TileGrid(AbsolutePositioner):
 
     def _update_y(self):
         value = int(self._absolute_y + self.y)
-        print("set sprite y", self, self._oam_indices, value)
+        # print("set sprite y", self, self._oam_indices, value, self._absolute_y, self.y)
         for x in range(self._width):
             for y in range(self._height):
-                i = x * self._width + y
+                i = x * self._height + y
                 v = value + 8 * y + 16
+                if v < 0:
+                    v = 0
                 self._oam_entries[i][0] = v
                 if self._oam_indices[0] is not None:
                     offset = self._compute_oam_address(i) + 0
@@ -146,11 +166,9 @@ class TileGrid(AbsolutePositioner):
             raise RuntimeError("Not enough sprites available")
 
         self._free_indices = free_indices
-        print("show tilegrid", self, self._oam_indices)
         for i in range(self._width * self._height):
             self._oam_indices[i] = free_indices.pop()
             oam_address = self._compute_oam_address(i)
-            print(self._oam_entries[i])
             self._gb[oam_address:oam_address + 4] = self._oam_entries[i]
 
     def _hide(self):
@@ -160,12 +178,21 @@ class TileGrid(AbsolutePositioner):
             self._free_indices.add(self._oam_indices[i])
             self._oam_indices[i] = None
 
+    @property
+    def flip_x(self):
+        pass
+
+    @flip_x.setter
+    def flip_x(self, value):
+        pass
+
+
 class Group(AbsolutePositioner):
-    def __init__(self, **kwargs):
+    def __init__(self, max_size=None, **kwargs):
         self._children = []
         super().__init__(**kwargs)
         self._free_indices = None
-        print("init group")
+        print("init group", kwargs)
 
     def __len__(self):
         return len(self._children)
@@ -184,6 +211,7 @@ class Group(AbsolutePositioner):
     def append(self, o):
         o._absolute_x = self.__absolute_x + self._x
         o._absolute_y = self.__absolute_y + self._y
+        print("append", self, o, o._absolute_x, o._absolute_y)
         # Show the object after we update its absolute position so it doesn't flicker.
         if self._free_indices is not None:
             o._show(self._free_indices)
@@ -267,6 +295,8 @@ OAM_OFFSET = 0xfe00 - 0xc000
 
 class GameBoy:
     def __init__(self):
+        _gbio.reset_gameboy()
+
         self._byte_buf = bytearray(6)
         self._byte_buf[0] = 0x00 # Noop to sync DMA to GB clock
         self._byte_buf[1] = 0x0e # Load next value into C
@@ -307,29 +337,36 @@ class GameBoy:
 
 
 
-        self._color = gbio.is_color()
+        self._color = _gbio.is_color()
         if self._color:
+            # Set vram bank to 1
+            self[0xff4f] = 0x1
+
+            blank = b"\x00"*32
+            for i in range(32):
+                start = 0x9800 + 32 * i
+                self[start:start+32] = blank
             # Set vram bank to 0
             self[0xff4f] = 0x0
-
-            # Set the background palette
-            self[0xff68] = 0x80
-
-            # Index 0
-            self[0xff69] = 0x1f
-            self[0xff69] = 0xf1
-
-            # Index 1
-            self[0xff69] = 0x1f
-            self[0xff69] = 0xf1
-
-            # Index 2
-            self[0xff69] = 0x1f
-            self[0xff69] = 0xf1
-
-            # Index 3
-            self[0xff69] = 0x1f
-            self[0xff69] = 0xf1
+            #
+            # # # Set the background palette
+            # self[0xff68] = 0x80
+            # for i in range(8):
+            #     # Index 0
+            #     self[0xff69] = 0x1f
+            #     self[0xff69] = 0xf1
+            #
+            #     # Index 1
+            #     self[0xff69] = 0x1f
+            #     self[0xff69] = 0xf1
+            #
+            #     # Index 2
+            #     self[0xff69] = 0x1f
+            #     self[0xff69] = 0xf1
+            #
+            #     # Index 3
+            #     self[0xff69] = 0x1f
+            #     self[0xff69] = 0xf1
         else:
             # Set the background palette
             self[0xff47] = 0b00011110
@@ -337,20 +374,21 @@ class GameBoy:
             # Set object palette 0
             self[0xff48] = 0b00011110
 
+        self[0xff47] = 0b10001101
 
-        gbio.set_lcdc(0b10010011)
+        _gbio.set_lcdc(0b10010011)
 
 
         self._group = None
 
     @property
     def lcd_display_enable(self):
-        return gbio.get_lcdc() & 0x80 != 0
+        return _gbio.get_lcdc() & 0x80 != 0
 
     @lcd_display_enable.setter
     def lcd_display_enable(self, value):
-        lcdc = gbio.get_lcdc() & 0x7f
-        gbio.set_lcdc((0x80 if value else 0) | lcdc)
+        lcdc = _gbio.get_lcdc() & 0x7f
+        _gbio.set_lcdc((0x80 if value else 0) | lcdc)
 
     def show(self, group):
         if group == self._group:
@@ -362,16 +400,21 @@ class GameBoy:
         self._group = group
 
     def wait_for_frame(self):
-        gbio.wait_for_vblank()
+        _gbio.wait_for_vblank()
         self._queued_oam_dma = False
 
     def __setitem__(self, index, value):
         oam = False
         if isinstance(index, int):
+            # if index == 0xff47 or index == 0xff48:
+            #     raise RuntimeError()
             if index > 0xff00:
                 self._byte_buf[2] = index - 0xff00
                 self._byte_buf[4] = value
-                gbio.queue_commands(self._byte_buf)
+                if index == 0xff69:
+                    _gbio.queue_vblank_commands(self._byte_buf, additional_cycles=1)
+                else:
+                    _gbio.queue_commands(self._byte_buf)
             else:
                 if (index & 0xff00) == 0xfe00:
                     index -= OAM_OFFSET
@@ -380,9 +423,9 @@ class GameBoy:
                 self._full_address[2] = (index >> 8) & 0xff
                 self._full_address[4] = value
                 if self.lcd_display_enable and (0x8000 <= index <= 0x9fff or 0xfe00 <= index <= 0xfe9f):
-                    gbio.queue_vblank_commands(self._full_address, additional_cycles=2)
+                    _gbio.queue_vblank_commands(self._full_address, additional_cycles=2)
                 else:
-                    gbio.queue_commands(self._full_address)
+                    _gbio.queue_commands(self._full_address)
         elif isinstance(index, slice):
             bc = 0
             out = None
@@ -400,9 +443,9 @@ class GameBoy:
                 if out is None or out > len(self._slice_buffer) - 4:
                     if out:
                         if vram:
-                            gbio.queue_vblank_commands(memoryview(self._slice_buffer)[:out], additional_cycles=additional_cycles)
+                            _gbio.queue_vblank_commands(memoryview(self._slice_buffer)[:out], additional_cycles=additional_cycles)
                         else:
-                            gbio.queue_commands(memoryview(self._slice_buffer)[:out])
+                            _gbio.queue_commands(memoryview(self._slice_buffer)[:out])
                     out = 1 # position in command
                     addr = start + i
                     self._slice_buffer[out] = 0x21
@@ -421,11 +464,11 @@ class GameBoy:
                 out += 1
             if out:
                 if vram:
-                    gbio.queue_vblank_commands(memoryview(self._slice_buffer)[:out], additional_cycles=additional_cycles)
+                    _gbio.queue_vblank_commands(memoryview(self._slice_buffer)[:out], additional_cycles=additional_cycles)
                 else:
-                    gbio.queue_commands(memoryview(self._slice_buffer)[:out])
+                    _gbio.queue_commands(memoryview(self._slice_buffer)[:out])
         if oam and not self._queued_oam_dma:
-            gbio.queue_vblank_commands(b"\xc3\x80\xff", additional_cycles=130)
+            _gbio.queue_vblank_commands(b"\xc3\x80\xff", additional_cycles=130)
             self._queued_oam_dma = True
 
 gb = GameBoy()

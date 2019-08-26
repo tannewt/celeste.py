@@ -31,8 +31,8 @@ class CelesteObject(p8.platform.Group):
 
         self.spd = geom.Vec()
         self.rem = geom.Vec()
-        self._x = 0
-        self._y = 0
+        self._float_x = 0
+        self._float_y = 0
 
     def collide_with_player(self, ox, oy):
         other = game.player

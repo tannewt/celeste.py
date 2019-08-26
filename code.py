@@ -12,6 +12,9 @@ last_checkpoint = time.monotonic()
 
 import pico8 as p8
 
+if p8.platform_id == "gb" or p8.platform_id == "gbc":
+    from adafruit_gameboy import gb
+
 from celeste.effects.cloud import Cloud
 from celeste.effects.particle import Particle
 from celeste.objects.balloon import Balloon
@@ -58,14 +61,14 @@ def load_room(x,y):
     game.room.x = x
     game.room.y = y
 
+    game.objects_by_type = {}
+
     # background map
     if p8.platform_id == "adafruit":
         game.objects.append(p8._map(game.room.x * 16,game.room.y * 16,0,0,16,16,4))
 
-
-    if p8.platform_id == "adafruit":
-        off = -4 if game.is_title() else 0
-        game.objects.append(p8._map(game.room.x*16,game.room.y * 16,off,0,16,16,2))
+    #off = -4 if game.is_title() else 0
+    game.objects.append(p8._map(game.room.x*16,game.room.y * 16,0,0,16,16,2))
 
     # entities
     for tx in range(16):
@@ -78,15 +81,20 @@ def load_room(x,y):
                 p = Platform(x=tx*8, y=ty*8, direction=direction)
                 game.objects.append(p)
                 if Platform not in game.objects_by_type:
-                    game.objects_by_type[Platform]
+                    game.objects_by_type[Platform] = []
                 game.objects_by_type[Platform].append(p)
             else:
                 if tile in types:
-                    game.objects.append(types[tile](x=tx*8, y=ty*8))
+                    t = types[tile]
+                    o = t(x=tx*8, y=ty*8)
+                    if t not in game.objects_by_type:
+                        game.objects_by_type[t] = []
+                    game.objects_by_type[t].append(o)
+                    game.objects.append(o)
 
     if not game.is_title():
         game.objects.append(RoomTitle(x=0, y=0))
-    else:
+    elif p8.platform_id == "adafruit":
         # credits
         game.objects.append(p8._print("A+B",58,80,5))
         game.objects.append(p8._print("MATT THORSON",42,96,5))
@@ -110,7 +118,7 @@ def begin_game():
     game.music_timer=0
     game.start_game=False
     p8.music(0,0,7)
-    load_room(6,0)
+    load_room(0,0)
 
 def _update():
     game.frames=((game.frames+1)%30)
@@ -153,7 +161,7 @@ def _update():
 
     # start game
     if game.is_title():
-        if not game.start_game and (True or p8.btn(game.k_jump) or p8.btn(game.k_dash)):
+        if not game.start_game and (p8.btn(game.k_jump) or p8.btn(game.k_dash)):
             p8.music(-1)
             game.start_game_flash=50
             game.start_game=True

@@ -14,8 +14,9 @@ class LifeUp(CelesteObject):
         self.y-=4
         self.flash=0
         self.solids=False
-        self._text = p8._print("1000",-2,0,7)
-        self.append(self._text)
+        if p8.platform_id == "adafruit":
+            self._text = p8._print("1000",-2,0,7)
+            self.append(self._text)
 
     def update(self):
         self.duration-=1

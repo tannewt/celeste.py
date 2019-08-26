@@ -33,6 +33,7 @@ class FakeWall(celeste_object.CelesteObject):
             game.sfx_timer=20
             p8.sfx(16)
             game.objects.remove(self)
+            game.objects_by_type[FakeWall].remove(self)
             game.objects.append(Smoke(x=self.x, y=self.y))
             game.objects.append(Smoke(x=self.x+8, y=self.y))
             game.objects.append(Smoke(x=self.x, y=self.y+8))

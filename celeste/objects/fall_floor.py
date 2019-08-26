@@ -35,6 +35,7 @@ class FallFloor(celeste_object.CelesteObject):
         # shaking
         elif self.state==1:
             self.delay-=1
+            print("shake", self.delay)
             if self.delay<=0:
                 self.state=2
                 self.delay=60 #how long it hides for
