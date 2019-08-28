@@ -5,12 +5,105 @@ class _SpeedStub:
         self.x = 0
         self.y = 0
 
+if _gbio.is_color():
+    tile_to_colors = None
+
+    TO_GBC = (
+        b"\x00\x00" # 0 - 0x000000,
+        b"\xa3\x28" # 1 - 0x1d2b53,
+        b"\x8f\x28" # 2 - 0x7e2553,
+        b"\x00\x2a" # 3 - 0x008751,
+        b"\x55\x19" # 4 - 0xab5236,
+        b"\x4b\x25" # 5 - 0x5f574f,
+        b"\x18\x63" # 6 - 0xc2c3c7,
+        b"\xdf\x77" # 7 - 0xfff1e8,
+        b"\x1f\x24" # 8 - 0xff004d,
+        b"\x9f\x02" # 9 - 0xffa300,
+        b"\xbf\x13" # 10 - 0xffec27,
+        b"\x80\x1b" # 11 - 0x00e436,
+        b"\xa5\x7e" # 12 - 0x29adff,
+        b"\xd0\x4d" # 13 - 0x83769c,
+        b"\xdf\x55" # 14 - 0xff77a8,
+        b"\x3f\x57" # 15 - 0xffccaa
+    )
+
+# # Use a function so we don't clutter the module with temporary vars
+# def shrink_palette():
+#     for i, color in enumerate(default_palette):
+#         r = (color >> 16) & 0xff
+#         g = (color >> 8) & 0xff
+#         b = color & 0xff
+#         packed = ((r >> 3) & 0x1f) | ((g >> 3) & 0x1f) << 5 | ((b >> 3) & 0x1f) << 10
+#         print(i, hex(color), r, g, b, hex(packed))
+# shrink_palette()
+
+class PaletteTracker:
+    def __init__(self, gb, is_sprite=False):
+        self._gb = gb
+        self._active_palettes = [None] * 8
+        self._palette_refcount = [0] * 8
+        self._is_sprite = is_sprite
+
+    def free(self, index):
+        self._palette_refcount[index] -= 1
+        if self._palette_refcount[index] == 0:
+            self._active_palettes[index] = None
+        elif self._palette_refcount[index] < 0:
+            raise RuntimeError("Extra free")
+
+    def get(self, palette):
+        for i, active in enumerate(self._active_palettes):
+            if active == palette:
+                return i
+        return 0xff
+
+    def alloc(self, palette):
+        # First see if we already have it
+        free_spot = None
+        for i, active in enumerate(self._active_palettes):
+            if active == palette:
+                self._palette_refcount[i] += 1
+                return i
+            if active is None:
+                free_spot = i
+
+        if free_spot is None:
+            raise RuntimeError("Too many palettes on one screen")
+
+        print("alloc", free_spot, palette)
+
+        # # Set the background palette
+        offset = 0x80 + free_spot * 2 * 4
+        if self._is_sprite:
+            gb[0xff6a] = offset
+            for color in palette:
+                if color is None:
+                    break
+                self._gb[0xff6b] = TO_GBC[2 * color]
+                self._gb[0xff6b] = TO_GBC[2 * color + 1]
+        else:
+            gb[0xff68] = offset
+            for color in palette:
+                if color is None:
+                    break
+                self._gb[0xff69] = TO_GBC[2 * color]
+                self._gb[0xff69] = TO_GBC[2 * color + 1]
+
+        self._active_palettes[free_spot] = palette
+        self._palette_refcount[free_spot] = 1
+        return free_spot
+
 class Background:
     def __init__(self, gb):
         self._gb = gb
         self._x = 0
         self._y = 0
         self.spd = _SpeedStub()
+        self._tile_to_palette = bytearray(32 * 32)
+        # Use 0xff to represent unknown palette
+        for i in range(32 * 32):
+            self._tile_to_palette[i] = 0xff
+        self._palette_tracker = PaletteTracker(gb, False)
 
     @property
     def x(self):
@@ -42,9 +135,27 @@ class Background:
     def _hide(self):
         pass
 
+    # TODO: Add ability to clear screen and free all palettes at once
+
     def __setitem__(self, index, value):
         if isinstance(index, tuple):
             index = index[0] * 32 + index[1]
+        if _gbio.is_color():
+            current_palette = self._tile_to_palette[index]
+            palette = tile_to_colors[value]
+            new_palette = self._palette_tracker.get(palette)
+            if new_palette == 0xff or current_palette != new_palette:
+                if current_palette < 0xff:
+                    self._palette_tracker.free(current_palette)
+                new_palette = self._palette_tracker.alloc(palette)
+                self._tile_to_palette[index] = new_palette
+
+                # Set the background tile options to it
+                self._gb[0xff4f] = 0x1 # Set vram bank to 1
+                self._gb[0x9800 + index] = new_palette
+                self._gb[0xff4f] = 0x0 # Set vram bank to 0
+                #print("swap palette", index, new_palette)
+            #print("map index set", index, value, new_palette, palette)
         self._gb[0x9800 + index] = value
 
 class AbsolutePositioner:
@@ -123,11 +234,27 @@ class TileGrid(AbsolutePositioner):
     def __setitem__(self, index, value):
         if self._oam_entries[index][2] == value:
             return
-        # print("set sprite", self._oam_indices, index, value)
+        palette_updated = False
+        if _gbio.is_color() and self._oam_indices[index] is not None:
+            attributes = self._oam_entries[index][3]
+            old_palette_index = attributes & 0x7
+            new_palette = tile_to_colors[value]
+            pt = self._gb._sprite_palettes
+            new_palette_index = pt.get(new_palette)
+            if new_palette_index == 0xff or old_palette_index != new_palette_index:
+                if old_palette_index < 0xff:
+                    pt.free(old_palette_index)
+                new_palette_index = pt.alloc(new_palette)
+                self._oam_entries[index][3] = (attributes & 0xf8) | new_palette_index
+                palette_updated = True
+
+        print("map index set", self._oam_indices, index, value)
         self._oam_entries[index][2] = value
         if self._oam_indices[index] is not None:
             offset = self._compute_oam_address(index) + 2
             self._gb[offset] = value
+            if palette_updated:
+                self._gb[offset + 1] = self._oam_entries[index][3]
 
     def _update_x(self):
         value = int(self._absolute_x + self.x)
@@ -169,23 +296,54 @@ class TileGrid(AbsolutePositioner):
         for i in range(self._width * self._height):
             self._oam_indices[i] = free_indices.pop()
             oam_address = self._compute_oam_address(i)
+
+            if _gbio.is_color():
+                attributes = self._oam_entries[i][3]
+                new_palette = tile_to_colors[self._oam_entries[i][2]]
+                pt = self._gb._sprite_palettes
+                new_palette_index = pt.alloc(new_palette)
+                self._oam_entries[i][3] = (attributes & 0xf8) | new_palette_index
             self._gb[oam_address:oam_address + 4] = self._oam_entries[i]
 
     def _hide(self):
         for i in range(self._width * self._height):
             oam_address = self._compute_oam_address(i)
+            if _gbio.is_color():
+                old_palette_index = self._oam_entries[i][3] & 0x7
+                self._gb._sprite_palettes.free(old_palette_index)
             self._gb[oam_address:oam_address + 4] = b"\x00\x00\x00\x00"
             self._free_indices.add(self._oam_indices[i])
             self._oam_indices[i] = None
 
     @property
     def flip_x(self):
-        pass
+        return (self._oam_entries[0][3] & (1 << 5)) != 0
 
     @flip_x.setter
     def flip_x(self, value):
-        pass
+        for i in range(self._width * self._height):
+            self._oam_entries[i][3] &= ~(1 << 5)
+            if value:
+                self._oam_entries[i][3] |= 1 << 5
 
+            if self._oam_indices[i] is not None:
+                offset = self._compute_oam_address(i) + 3
+                self._gb[offset] = self._oam_entries[i][3]
+
+    @property
+    def flip_y(self):
+        return (self._oam_entries[0][3] & (1 << 6)) != 0
+
+    @flip_x.setter
+    def flip_y(self, value):
+        for i in range(self._width * self._height):
+            self._oam_entries[i][3] &= ~(1 << 6)
+            if value:
+                self._oam_entries[i][3] |= 1 << 6
+                
+            if self._oam_indices[i] is not None:
+                offset = self._compute_oam_address(i) + 3
+                self._gb[offset] = self._oam_entries[i][3]
 
 class Group(AbsolutePositioner):
     def __init__(self, max_size=None, **kwargs):
@@ -319,6 +477,7 @@ class GameBoy:
         self.tiles = Tiles(self)
 
         self._sprite_allocation = set()
+        self._sprite_palettes = PaletteTracker(self, True)
 
         self._queued_oam_dma = False
 
@@ -335,8 +494,6 @@ class GameBoy:
             oam_address = 0xfe00 + 4 * i
             self[oam_address:oam_address + 4] = b"\x00\x00\x00\x00"
 
-
-
         self._color = _gbio.is_color()
         if self._color:
             # Set vram bank to 1
@@ -348,25 +505,6 @@ class GameBoy:
                 self[start:start+32] = blank
             # Set vram bank to 0
             self[0xff4f] = 0x0
-            #
-            # # # Set the background palette
-            # self[0xff68] = 0x80
-            # for i in range(8):
-            #     # Index 0
-            #     self[0xff69] = 0x1f
-            #     self[0xff69] = 0xf1
-            #
-            #     # Index 1
-            #     self[0xff69] = 0x1f
-            #     self[0xff69] = 0xf1
-            #
-            #     # Index 2
-            #     self[0xff69] = 0x1f
-            #     self[0xff69] = 0xf1
-            #
-            #     # Index 3
-            #     self[0xff69] = 0x1f
-            #     self[0xff69] = 0xf1
         else:
             # Set the background palette
             self[0xff47] = 0b00011110
@@ -411,7 +549,10 @@ class GameBoy:
             if index > 0xff00:
                 self._byte_buf[2] = index - 0xff00
                 self._byte_buf[4] = value
-                if index == 0xff69:
+                # Special case the gameboy color palette registers and the vram bank switch.
+                # Although the palette index register can be accessed outside vblank, we treat it
+                # like it is to ensure access ordering.
+                if 0xff68 <= index <= 0xff6b or index == 0xff4f:
                     _gbio.queue_vblank_commands(self._byte_buf, additional_cycles=1)
                 else:
                     _gbio.queue_commands(self._byte_buf)

@@ -77,6 +77,9 @@ if platform_id == "adafruit":
     gamepad = gamepadshift.GamePadShift(digitalio.DigitalInOut(board.BUTTON_CLOCK),
                                         digitalio.DigitalInOut(board.BUTTON_OUT),
                                         digitalio.DigitalInOut(board.BUTTON_LATCH))
+elif platform_id == "gbc":
+    tile_to_colors = None
+    palette = None # handled automatically most of the time
 else:
     palette = None
 
@@ -86,28 +89,84 @@ def find_section(f, header):
     while next_line and next_line != header:
         next_line = f.readline()
 
+def _compute_gbc_palettes(f, data):
+    global tile_to_colors
+    # First, gather all color combinations for all tiles.
+    tile_hashes = [0] * (16 * 16)
+    for row in range(64):
+        f.readinto(data)
+        for col in range(128):
+            i = row * 128 + col
+            # Convert from ASCII hex to numeric value.
+            value = data[col]
+            if value >= 0x61:
+                value = 10 + value - 0x61
+            elif value >= 0x41:
+                value = 10 + value - 0x41
+            else:
+                value -= 0x30
+
+            tile_index = row // 8 * 16 + col // 8
+            tile_hashes[tile_index] |= 1 << value
+
+    # Next, validate that no tile has more than four colors.
+    for tile_index, hash in enumerate(tile_hashes):
+        count = 0
+        for bit in range(16):
+            if hash & 1 << bit:
+                count += 1
+            if count == 5:
+                print("tile {} has too many colors for the gameboy color".format(tile_index))
+                tile_hashes[tile_index] = hash & ((1 << bit) - 1)
+                break
+
+    # Gather tiles by hash
+    hash_to_tiles = {}
+    for tile_index, hash in enumerate(tile_hashes):
+        if hash not in hash_to_tiles:
+            hash_to_tiles[hash] = []
+        hash_to_tiles[hash].append(tile_index)
+    del tile_hashes
+
+    # We don't care about tiles that don't have any colors. (Artifact of data tiles)
+    if 0 in hash_to_tiles:
+        del hash_to_tiles[0]
+
+    # Combine palettes with less than four colors into superset palettes.
+    i = 0
+    hashes = sorted(hash_to_tiles.keys())
+    while i < len(hashes) - 1:
+        j = i + 1
+        a = hashes[i]
+        while j < len(hashes):
+            b = hashes[j]
+            if a & b == a:
+                hash_to_tiles[b].extend(hash_to_tiles[a])
+                del hash_to_tiles[a]
+                break
+            j += 1
+        i += 1
+
+    tile_to_colors = [None] * (16 * 16)
+    for hash in hash_to_tiles:
+        tiles = hash_to_tiles[hash]
+        i = 0
+        colors = [None] * 4
+        for bit in range(16):
+            if hash & 1 << bit:
+                colors[i] = bit
+                i += 1
+        for tile in tiles:
+            tile_to_colors[tile] = colors
+
+    platform.tile_to_colors = tile_to_colors
+
+    # Reset back to the start of the section
+    find_section(f, "__gfx__\n")
+
 def load_gfx(f):
     global sprite_sheet, tile_map2
     first = True
-    # # Set the background palette
-    gb[0xff68] = 0x80
-    gb[0xff6a] = 0x80
-    for i in range(8):
-        # Index 0
-        gb[0xff69] = 0x00
-        gb[0xff69] = 0x0f
-
-        # Index 1
-        gb[0xff69] = 0xf0
-        gb[0xff69] = 0x00
-
-        # Index 2
-        gb[0xff69] = 0x0f
-        gb[0xff69] = 0x00
-
-        # Index 3
-        gb[0xff69] = 0x00
-        gb[0xff69] = 0xf0
     find_section(f, "__gfx__\n")
     tile_map2 = bytearray(64 * 64)
     if platform_id == "adafruit":
@@ -118,6 +177,8 @@ def load_gfx(f):
         color_mapping = lambda x: gameboy_color_mapping[x]
         gb.tiles.auto_show = False
     data = bytearray(129)
+    if platform_id == "gbc":
+        _compute_gbc_palettes(f, data)
     for row in range(128):
         f.readinto(data)
         t = time.monotonic()
@@ -132,7 +193,7 @@ def load_gfx(f):
             else:
                 value -= 0x30
 
-            if row > 64:
+            if row >= 64:
                 i = (row - 64) * 64 + col // 2
                 if col % 2 == 1:
                     tile_map2[i] += value << 4
@@ -140,7 +201,15 @@ def load_gfx(f):
                 else:
                     tile_map2[i] = value
             else:
-                sprite_sheet[i] = color_mapping(value)
+                if platform_id == "gbc":
+                    tile_index = row // 8 * 16 + col // 8
+                    colors = tile_to_colors[tile_index]
+                    if colors is None or value not in colors:
+                        sprite_sheet[i] = 0
+                    else:
+                        sprite_sheet[i] = colors.index(value)
+                else:
+                    sprite_sheet[i] = color_mapping(value)
         if row % 8 == 7 and (platform_id == "gb" or platform_id == "gbc"):
             if first:
                 sprite_sheet.show()
