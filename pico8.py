@@ -18,7 +18,6 @@ except ImportError:
     import adafruit_imageload
     import digitalio
     import board
-    import gamepadshift
     platform_id = "adafruit"
 
 sprite_sheet = None
@@ -63,6 +62,21 @@ gameboy_color_mapping = [
     2
 ]
 
+class FakeGamepad:
+    def __init__(self):
+        self.b1 = digitalio.DigitalInOut(board.BUTTON1)
+        self.b1.switch_to_input(pull=digitalio.Pull.UP)
+        self.b2 = digitalio.DigitalInOut(board.BUTTON2)
+        self.b2.switch_to_input(pull=digitalio.Pull.UP)
+
+    def get_pressed(self):
+        res = 0
+        if not self.b1.value:
+            res |= 1
+        if not self.b2.value:
+            res |= 2
+        return res
+
 if platform_id == "adafruit":
     single_color = [None]*16
     palette = platform.Palette(16)
@@ -74,9 +88,10 @@ if platform_id == "adafruit":
         single_color[i][1] = color
     palette.make_transparent(0)
 
-    gamepad = gamepadshift.GamePadShift(digitalio.DigitalInOut(board.BUTTON_CLOCK),
-                                        digitalio.DigitalInOut(board.BUTTON_OUT),
-                                        digitalio.DigitalInOut(board.BUTTON_LATCH))
+    # gamepad = gamepadshift.GamePadShift(digitalio.DigitalInOut(board.BUTTON_CLOCK),
+    #                                     digitalio.DigitalInOut(board.BUTTON_OUT),
+    #                                     digitalio.DigitalInOut(board.BUTTON_LATCH))
+    gamepad = FakeGamepad()
 elif platform_id == "gbc":
     tile_to_colors = None
     palette = None # handled automatically most of the time
@@ -365,7 +380,7 @@ def tick(display, button_state):
     #     for i in range(10):
     #         display.wait_for_frame()
     # else:
-    display.wait_for_frame()
+    display.refresh(target_frames_per_second=30)
     if platform_id == "gb" or platform_id == "gbc":
         buttons = ~_gbio.get_pressed() & 0xff
         #print("buttons", buttons)

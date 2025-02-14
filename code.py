@@ -54,7 +54,7 @@ def load_room(x,y):
     has_key=False
 
     # reset object list
-    game.objects = p8.platform.Group(max_size=43)
+    game.objects = p8.platform.Group()
     game.objects.x = 16
 
     # current room
@@ -209,7 +209,8 @@ def _draw():
         bg_col=2
     p8.rectfill(0,0,128,128,bg_col)
 
-    display.show(game.objects)
+    display.root_group = game.objects
+    # display.root_group.scale = 2
 
     # clouds
     if not game.is_title():
@@ -274,10 +275,20 @@ def _draw():
 # bus = displayio.FourWire(spi, command=pin.PB05, chip_select=pin.PB07, reset=pin.PA01)
 # display = adafruit_st7735r.ST7735R(bus, width=160, height=128, backlight_pin=pin.PA00, rotation=270)
 
+
 if p8.platform_id == "adafruit":
-    display = board.DISPLAY
-    display.auto_brightness = False
-    display.brightness = 1
+    import picodvi
+    import displayio
+    import framebufferio
+    displayio.release_displays()
+
+    fb = picodvi.Framebuffer(360, 200, clk_dp=board.CKP, clk_dn=board.CKN,
+                                       red_dp=board.D0P, red_dn=board.D0N,
+                                       green_dp=board.D1P, green_dn=board.D1N,
+                                       blue_dp=board.D2P, blue_dn=board.D2N,
+                                       color_depth=8)
+    display = framebufferio.FramebufferDisplay(fb, auto_refresh=False)
+    # display = board.DISPLAY
 else:
     display = gb
 

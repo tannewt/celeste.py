@@ -41,6 +41,13 @@ if p8.platform_id == "adafruit":
         k_down=5
         k_jump=0 # B
         k_dash=1 # A
+    else:
+        k_left=7
+        k_right=4
+        k_up=6
+        k_down=5
+        k_jump=0 # B
+        k_dash=1 # A
 elif p8.platform_id == "gb" or p8.platform_id == "gbc":
     k_left=1
     k_right=0
